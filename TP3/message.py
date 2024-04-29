@@ -234,10 +234,19 @@ class message:
         pem_bytes = self.content.encode('utf-8')
         return  serialization.load_pem_public_key(pem_bytes)
     
-    #def sign_content(self, private_key):
-        #self.contentSign = Sign(self.content.encode('utf-8'), private_key)
+    def socket_send_msg(self, msg):
+        size = len(msg)
+        tamanho_codificado = size.to_bytes(4, byteorder='big')
+        mensagem_com_tamanho = tamanho_codificado + msg
+        self.server_socket.sendall(mensagem_com_tamanho)
 
-   
+    def socket_recieve_msg(self, socket):
+        size = socket.recv(4)
+        try:
+            tamanho_mensagem = int.from_bytes(size, byteorder='big')
+            return socket.recv(tamanho_mensagem)
+        except ValueError:
+            self.socket_recieve_msg(socket)
 
 # # Exemplo de uso
 

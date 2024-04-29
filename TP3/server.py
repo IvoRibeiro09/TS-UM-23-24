@@ -6,7 +6,6 @@ from cryptography.hazmat.primitives import serialization, hashes
 import cryptography.x509.oid as oid
 from message import * 
 import os
-import json
 import csv
 
 ##meter um cifragem qualquer para a chave privada para nao guarda la simples(o certificado tambem)
@@ -30,50 +29,15 @@ def load_data(password=None):
     
     return private_key, public_key, certificate
     
-## falta a cifragem dos ficheiros se for necessario
-class User:
-    def __init__(self,uid,env=0,rec=0):
-        self.uid = uid
-        self.number_env = env
-        self.number_rec = rec
-        if not os.path.exists(f"server/{uid}"):
-            os.makedirs(f"server/{uid}")
-        if not os.path.exists(f"server/{uid}/rec"):
-            os.makedirs(f"server/{uid}/rec")
-        if not os.path.exists(f"server/{uid}/env"):
-            os.makedirs(f"server/{uid}/env")
-
-    def add_send_message(self,uid,cypher):
-        assert self.uid == uid, "Nao tem permissoes para escrever neste user"
-        
-        with open(f"server/{uid}/env/{self.number_env}.msg", "wb+") as f:
-            f.write(cypher)
-        self.number_env+=1
-
-    def add_message(self,uid,cypher):
-        assert self.uid == uid, "Nao tem permissoes para escrever neste user"
-    
-        with open(f"server/{uid}/rec/{self.number_rec}.msg", "wb+") as f:
-            f.write(cypher)
-        self.number_rec+=1
-    
-    def get_message(self,uid,number):
-        assert self.uid == uid, "Nao tem permissoes para escrever neste user"
-        
-        with open(f"server/{uid}/rec/{number}.msg", "rb") as f:
-                m = f.read()
-
-        return m
-
-    def get_uid(self):
-        return self.uid
-
 class Server:
     def __init__(self, host, port):
+        self.host = host
+        self.port = port
+        self.register()
         if not os.path.exists("server"):
             os.makedirs(f"server")
-        if not os.path.exists("server/pks"):
-            os.makedirs(f"server/pks")
+        if not os.path.exists("server/users"):
+            os.makedirs(f"server/users")
         
         arquivo_existe = os.path.isfile("server/log.csv")
         with open("server/log.csv", mode='a+', newline='') as arquivo_csv:
@@ -122,6 +86,30 @@ class Server:
             self.users.append(user)
 
         print(f"Servidor aberto ({self.host} : {self.port})")
+
+    def start(self):
+        self.register()
+        try:
+            while True:
+                # Aguardar por novas conexões
+                newsocket, client_address = self.server_socket.accept()
+                client_connection = self.context.wrap_socket(newsocket, server_side=True)
+                # Criar uma thread para lidar com a conexão do cliente
+                client_thread = threading.Thread(target=self.handle_client, args=(client_connection, client_address))
+                client_thread.start()
+        except KeyboardInterrupt:
+            print("Servidor encerrado.")
+        finally:
+            # Fechar o socket do servidor
+            self.server_socket.close()
+
+    def register(self):
+        # pedir cjhaves À entidade 
+        pass
+
+    def ask_4_pk(self):
+        # copiar 
+        pass
 
     def new_client(self,UID,mensagem_rec):
         user = self.get_user(UID)
@@ -302,22 +290,7 @@ class Server:
         finally:
             # Fechar a conexão com o cliente
             connection.close()
-            print(f"Conexão encerrada com {address}")
-
-    def start(self):
-        try:
-            while True:
-                # Aguardar por novas conexões
-                newsocket, client_address = self.server_socket.accept()
-                client_connection = self.context.wrap_socket(newsocket, server_side=True)
-                # Criar uma thread para lidar com a conexão do cliente
-                client_thread = threading.Thread(target=self.handle_client, args=(client_connection, client_address))
-                client_thread.start()
-        except KeyboardInterrupt:
-            print("Servidor encerrado.")
-        finally:
-            # Fechar o socket do servidor
-            self.server_socket.close()
+            print(f"Conexão encerrada com {address}")        
 
 # Configurações do servidor
 HOST = '127.0.0.1'  # Endereço IP local

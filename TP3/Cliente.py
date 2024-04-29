@@ -1,20 +1,8 @@
 from cryptography.hazmat.primitives.serialization import pkcs12
 from message import *
-from cryptography import x509
 import socket
 import ssl
-import threading
-
-def extract_public_key(cert):
-    """Retorna a chave publica do certificado. 
-    Entrada: caminho certificado, Saída: public_key"""
-    with open(cert, 'rb') as file:
-        file_data = file.read()
-        cert = x509.load_pem_x509_certificate(file_data)
-        public_key = cert.public_key()
-        public_key_out = public_key.public_bytes(encoding=serialization.Encoding.PEM, format=serialization.PublicFormat.SubjectPublicKeyInfo)
-        public_key_out = serialization.load_pem_public_key(public_key_out)
-    return public_key_out
+import os
 
 def creat_socket(host, port):
     context = ssl.create_default_context()
@@ -24,71 +12,53 @@ def creat_socket(host, port):
     return context.wrap_socket(sock, server_hostname=host)
     
 class Cliente:
-    def __init__(self, uid, pk, sk, cert, ca):
+    def __init__(self, uid, pw):
         self.id = uid
-        self.pk = pk
-        self.sk = sk
-        self.cert = cert
-        self.ca = ca
-        self.server_socket = creat_socket("127.0.0.1", 12345)
-        self.status_socket = creat_socket("127.0.0.1", 12345)
-        self.pks = {"server": extract_public_key('SERVER.crt')}
-        self.help = """\nOpções:
-1- Enviar Mensagem!
-2- Ver mensagens não lidas!
-3- Pedir mensagem!
-4- Rever mensagens já lidas!
-9- Fechar aplicação!\n"""
+        self.password = pw
+        self.public_key = None
+        self.private_key = None
+        self.cert = None
+        self.ca = None
+        #self.server_socket = creat_socket("127.0.0.1", 12345)
+        #self.autoridade_cert_socket = creat_socket("127.0.0.2", 12345)
+        self.pks = {}
+        self.unreadMSG = 0
+        self.liveMsg = 0
+        self.popup = "############"
         self.start()
         self.server_socket.close()
-        self.status_socket.close()
+        self.autoridade_cert_socket.close()
 
+    def updateMenu(self):
+        if self.unreadMSG == 0 and self.liveMsg == 0:
+            self.popup = "############"
+        elif self.unreadMSG > 0 and self.liveMsg == 0:
+            self.popup = " {} New Message! ".format(self.unreadMSG)
+        elif self.unreadMSG > 0 and self.liveMsg > 0:
+            self.popup = " {} New Message! AND {} Live Chat! ".format(self.unreadMSG, self.liveMsg)
+        self.help = """#################{}#################
+1- Check MAilBox!
+2- Check Live Chat!
+3- Send Message!
+4- Start Live Chat!
+9- Close app!
+#################{}#################\n""".format(self.popup, "#"*len(self.popup))
+        
     def start(self):
-        self.register()
-        # uma thread para o menu e outra para o handler
-        # abrir a interface menu 
-        # ouvir o server para conexões de status
-        menu = threading.Thread(target=self.menu)
-        handler = threading.Thread(target=self.handler)
-        menu.start()
-        handler.start()
+        #self.register()
+        #self.server_handle()
+        self.menu()
 
     def register(self):
+        # peço a chave publica do server
+        # envio pedido de registro no server
         public_key_server = self.pks['server']
         messagem = message(self.id, self.ca, "server", "0", "register", self.pk,"")
         messagem.serialize_public_key()
         cypher = messagem.serialize(public_key_server, self.sk)
         self.socket_send_msg(cypher)
 
-    def menu(self):
-        option = int(input(self.help))
-        while option != 9:
-            if option == 1:
-                print("\n#####################################################################")
-                rid = input("Destinatário (Reciever): ")
-                subj = input("Assunto (Subject): ")
-                msg = input("Mensagem (Content): ")
-                print("#####################################################################\n")
-                # saber se conheço o rid
-                # se sim 
-                # se não pedir ao server
-                if rid not in self.pks.keys():
-                    if self.ask_4_pk(rid) == 0:
-                        self.send_message(rid, subj, msg)
-                    else:
-                        print("MSG Serviço: Destinatŕio inválido!\n(MSG SERVICE: unknown user!)")
-                else:
-                    self.send_message(rid, subj, msg)
-            elif option == 2:
-                self.ask_queue("2")
-            elif option == 4:
-                self.ask_queue("5")
-            elif option == 3:
-                num = input("Qual o ID da mensagem que queres receber: \n(What is the ID of the message you want to receive)\n")
-                self.get_message(num)
-            option = int(input(self.help))
-
-    def handler(self):
+    def server_handle(self):
         while self.status_socket:
             data = self.socket_recieve_msg(self.status_socket)
             if data == -1:
@@ -97,15 +67,40 @@ class Cliente:
             if mensagem_rec.deserialize(data, self.private_key) == -1:
                 print("MSG SERVICE: verification error!")
                 break
-                
-        pass
-        
-    def send_message(self, rid, subject, content):
+
+    def menu(self):
+        os.system('clear')
+        self.updateMenu()
+        option = int(input(self.help))
+        while option != 9:
+            if option == 3:
+                self.send_message()
+            elif option == 1:
+                self.displayMailBox()
+            elif option == 3:
+                self.displayLiveChat()
+            elif option == 4:
+                self.startLiveChat()
+            option = int(input(self.help))
+     
+    def send_message(self):
+        print("\n#####################################################################")
+        rid = input("Destinatário (Reciever): ")
+        subject = input("Assunto (Subject): ")
+        content = input("Mensagem (Content): ")
+        print("#####################################################################\n")
+        # saber se conheço o rid
+        # se sim 
+        # se não pedir ao server
+        if rid not in self.pks.keys():
+            if self.ask_4_pk(rid) != 0:
+                print("MSG Serviço: Destinatŕio inválido!\n(MSG SERVICE: unknown user!)")
+                return -1
         """Verifica se a mensagem possui menos de 1000 bytes.
         Assina, cifra, serializa e envia as mensagens ao server"""
         # Verificar tamanho do conteúdo menor que 1000 bytes
         message_bytes = content.encode('utf-8')
-        if len(message_bytes) > 1000:
+        if len(message_bytes) > 512:
             return print('A mensagem excedeu os 1000 bytes')
         # pk do servidor e do reciever
         public_key_server = self.pks['server']
@@ -118,6 +113,24 @@ class Cliente:
         serialized_msg = msg.serialize(public_key_server, self.sk)
         self.socket_send_msg(serialized_msg)
         print('Mensagem enviada!(Message sent!)')  
+
+    def displayMailBox(self):
+        # percorrer a diretoria com o meu nome
+        # desincriptar as ultimas 20 mensgens em caso de erro retornar erro no display
+        pass
+
+    def displayLiveChat(self):
+        # perguntar quem esta a pedir live chat e aceitar ou rejeitar
+        pass
+
+    def startLiveChat(self):
+        # começar o conversar com prints do lado direito e esquerdo
+        left_text = "Texto alinhado à esquerda"
+        right_text = "Texto alinhado à direita"
+
+        # Usando formatação de string
+        print("{:<30}{}".format(left_text, right_text))
+        pass
 
     def ask_4_pk(self, rid):
         public_key_server = self.pks['server']
@@ -201,12 +214,9 @@ class Cliente:
 def login(password=None):
     # Solicitar nome de usuário e senha ao usuário
     nome = input("Nome de usuário: ")
-    senha = input("Certificado (inserir o nome do ficheiro com terminação .crt): ")
-    with open(senha[:-4]+".p12", "rb") as file:
-        p12_data = file.read()
-    private_key, user_ca, _ = pkcs12.load_key_and_certificates(p12_data, password)
-    public_key = private_key.public_key()
-    return Cliente(nome, public_key, private_key, senha, user_ca)
+    password = input("Password: ")
+    return Cliente(nome, password)
+
 
 
 cliente = login()
