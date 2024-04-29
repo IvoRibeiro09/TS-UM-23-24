@@ -1,8 +1,9 @@
-from cryptography.hazmat.primitives.serialization import pkcs12, load_pem_public_key
+from cryptography.hazmat.primitives.serialization import pkcs12
 from message import *
 from cryptography import x509
 import socket
 import ssl
+import threading
 
 def extract_public_key(cert):
     """Retorna a chave publica do certificado. 
@@ -39,8 +40,6 @@ class Cliente:
 4- Rever mensagens já lidas!
 9- Fechar aplicação!\n"""
         self.start()
-        
-        #self.menu()
         self.server_socket.close()
         self.status_socket.close()
 
@@ -49,6 +48,10 @@ class Cliente:
         # uma thread para o menu e outra para o handler
         # abrir a interface menu 
         # ouvir o server para conexões de status
+        menu = threading.Thread(target=self.menu)
+        handler = threading.Thread(target=self.handler)
+        menu.start()
+        handler.start()
 
     def register(self):
         public_key_server = self.pks['server']
@@ -84,6 +87,18 @@ class Cliente:
                 num = input("Qual o ID da mensagem que queres receber: \n(What is the ID of the message you want to receive)\n")
                 self.get_message(num)
             option = int(input(self.help))
+
+    def handler(self):
+        while self.status_socket:
+            data = self.socket_recieve_msg(self.status_socket)
+            if data == -1:
+                    break
+            mensagem_rec = message()
+            if mensagem_rec.deserialize(data, self.private_key) == -1:
+                print("MSG SERVICE: verification error!")
+                break
+                
+        pass
         
     def send_message(self, rid, subject, content):
         """Verifica se a mensagem possui menos de 1000 bytes.
@@ -175,13 +190,13 @@ class Cliente:
         mensagem_com_tamanho = tamanho_codificado + msg
         self.server_socket.sendall(mensagem_com_tamanho)
 
-    def socket_recieve_msg(self):
-        size = self.server_socket.recv(4)
+    def socket_recieve_msg(self, socket):
+        size = socket.recv(4)
         try:
             tamanho_mensagem = int.from_bytes(size, byteorder='big')
-            return self.server_socket.recv(tamanho_mensagem)
+            return socket.recv(tamanho_mensagem)
         except ValueError:
-            self.socket_recieve_msg()
+            self.socket_recieve_msg(socket)
         
 def login(password=None):
     # Solicitar nome de usuário e senha ao usuário
