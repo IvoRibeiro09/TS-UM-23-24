@@ -91,6 +91,8 @@ class server:
                     # guradar a mensagem numa pasta
                     # atualizar o ficehiro de logs do utilizador para o qual enviamos
                     pass
+                elif action == '4': # pedido de livechat
+                    pass
         finally:
             c_con.close()
   
