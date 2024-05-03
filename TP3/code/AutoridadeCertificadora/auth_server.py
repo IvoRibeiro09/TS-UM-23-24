@@ -9,6 +9,25 @@ import os
 import json
 import csv
 
+
+# remover depois
+def load_data(password=None):
+    with open("SERVER.p12", "rb") as file:
+        p12_data = file.read()
+    private_key, certificate, _ = pkcs12.load_key_and_certificates(p12_data, password, backend=default_backend())
+    public_key = private_key.public_key()
+    with open("SERVER.crt", "wb+") as file:
+        certificate_1 = certificate.public_bytes(encoding=serialization.Encoding.PEM)
+        file.write(certificate_1)
+    with open("SERVER.pem", "wb+") as file:
+        private_key_1 = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+        file.write(private_key_1)
+    return private_key, public_key, certificate
+
 ##meter um cifragem qualquer para a chave privada para nao guarda la simples(o certificado tambem)
 def load_data(password=None):
     with open("SERVER.p12", "rb") as file:

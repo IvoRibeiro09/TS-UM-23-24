@@ -1,45 +1,34 @@
 import os
 import socket
 import threading
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.serialization import pkcs12
-from socket import socket, AF_INET, SOCK_STREAM
-from ssl import SSLContext, PROTOCOL_TLS_SERVER
+from socketFuncs.socketFuncs import creat_socket, join_socket
 import cryptography.x509.oid as oid
-from message import*
+from message import *
 
+class User:
+    def __init__(self, id, pw, pk):
+        self.id = id
+        self.pw = pw
+        self.publicKey = pk
+        self.unreadmsg = []
+        self.livechats = []
 
-# remover depois
-def load_data(password=None):
-    with open("SERVER.p12", "rb") as file:
-        p12_data = file.read()
-    private_key, certificate, _ = pkcs12.load_key_and_certificates(p12_data, password, backend=default_backend())
-    public_key = private_key.public_key()
-    with open("SERVER.crt", "wb+") as file:
-        certificate_1 = certificate.public_bytes(encoding=serialization.Encoding.PEM)
-        file.write(certificate_1)
-    with open("SERVER.pem", "wb+") as file:
-        private_key_1 = private_key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=serialization.NoEncryption()
-        )
-        file.write(private_key_1)
-    return private_key, public_key, certificate
 
 class server:
     def __init__(self):
         # ligar à autoridade certificadora
-        self.privateKey, self.publicKey, self.ca = load_data()
+        self.auth_cert_socket = join_socket('127.0.0.3', 12345)
+        self.privateKey, self.publicKey, self.ca = self.load_data_AC()
         self.masters_con = socket(AF_INET, SOCK_STREAM)
         self.masters_con.connect(('127.0.0.1', 12345))
-        self.client_socket = socket(AF_INET, SOCK_STREAM)
-        self.client_socket.bind(('127.0.0.2', 12345))
-        self.context = SSLContext(PROTOCOL_TLS_SERVER)
-        self.context.load_cert_chain("SERVER.crt", "SERVER.pem")
+        self.client_socket, self.cs_context = creat_socket('127.0.0.2', 12345, self.ca, self.privateKey)
+        self.uData = {}
         self.start()
         self.masters_con.close()
+
+    def load_data_AC(self):
+        # msg para a autoriDADE certificadora a pedir os meus dados
+        pass
 
     def start(self):
         if not os.path.exists("BD"): os.makedirs("BD")
@@ -49,7 +38,7 @@ class server:
             while True:
                 # Aguardar por novas conexões
                 newsocket, client_address = self.client_socket.accept()
-                client_connection = self.context.wrap_socket(newsocket, server_side=True)
+                client_connection = self.cs_context.wrap_socket(newsocket, server_side=True)
                 # Criar uma thread para lidar com a conexão de cada cliente
                 client_thread = threading.Thread(target=self.handleClient, args=(client_connection, client_address))
                 client_thread.start()
@@ -76,12 +65,15 @@ class server:
                 
                 action = rmsg.action
                 if action == '0': # registrar
-                    # se n exister registar 
-                    self.registeUser(rmsg.senderID, rmsg.content)
-                    # se exister logar
+                    if rmsg.senderID in self.uData.keys():
+                        # se exister logar
+                        self.login(rmsg.senderID)
+                    else:
+                        # se n exister registar 
+                        self.registeUser(rmsg.senderID, rmsg.content)
                     
                 elif action == '1': # pedido de entrar num grupo
-                    self.receive(mensagem_rec,data)
+                    
                     print("LOG- Cliente {} enviou uma mensagem no dia {}!".format(uid,str(datetime.datetime.now())))
                 
                 elif action == '2': # criar grupo
@@ -95,8 +87,15 @@ class server:
                     pass
         finally:
             c_con.close()
+    
+    def login(self, nome, result=None):
+        if result != None:
+            msg = message('server', self.ca, nome, "0", "login", result, "")
+            msg.serialize(self.uData[nome].publicKey, self.privateKey)
   
     def registeUser(self, nome, pword):
+        # pedir a chave publica do nome à autoridade certificadora
+        
         message = "Criar novo usuário"
         # Enviar mensagem ao master
         self.masters_con.sendall(message.encode())
@@ -104,6 +103,7 @@ class server:
             print("LOG- Cliente {} registado no dia {}!".format(nome, str(datetime.datetime.now())))
         else:
             raise ValueError("ERROR: criar utilizador!")"""
+        self.login(nome, "Invalid inicialization!")
         
     def registeGruop(self, nome):
         message = f"Criar grupo: {nome}"
@@ -114,11 +114,8 @@ class server:
         self.masters_con.sendall(message.encode())
 
 
-user_info = pwd.getpwnam("server")
-# Definir o UID do processo para o UID do usuário "server"
-os.setuid(user_info.pw_uid)
-
 server()
+#  sudo -u server python3 serverAPI.py
 
 # Colocar permissões de leitura aos menbros do grupo MailViewer
 

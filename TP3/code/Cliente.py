@@ -1,16 +1,9 @@
 from cryptography.hazmat.primitives.serialization import pkcs12
 from message import *
-import socket
-import ssl
+from socketFuncs import join_socket
 import os
 
-def creat_socket(host, port):
-    context = ssl.create_default_context()
-    context.check_hostname= False
-    context.verify_mode = ssl.CERT_NONE
-    sock = socket.create_connection((host, port))
-    return context.wrap_socket(sock, server_hostname=host)
-    
+
 class cliente:
     def __init__(self):
         self.id, self.pw = self.login()
@@ -18,7 +11,7 @@ class cliente:
         self.private_key = None
         self.cert = None
         self.ca = None
-        self.server_socket = creat_socket("127.0.0.2", 12345)
+        self.server_socket = join_socket("127.0.0.2", 12345)
         #self.autoridade_cert_socket = creat_socket("127.0.0.2", 12345)
         self.pks = {}
         self.unreadMSG = 0
