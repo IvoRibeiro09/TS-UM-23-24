@@ -1,14 +1,10 @@
-import socket
+from socketFuncs.socketFuncs import creat_tcp_socket
 import os
-import subprocess
 
 # ao arrancar criar um user server
 class MasterUser:
     def __init__(self):
-        self.IP = '127.0.0.1'
-        self.port = 12345
-        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_socket.bind((self.IP, self.port))
+        self.server_socket = creat_tcp_socket('127.0.0.1', 12345)
         self.start()
         self.server_socket.close()
 

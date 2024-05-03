@@ -1,6 +1,6 @@
 from cryptography.hazmat.primitives.serialization import pkcs12
 from message import *
-from socketFuncs import join_socket
+from socketFuncs.socketFuncs import join_tls_socket
 import os
 
 
@@ -11,7 +11,7 @@ class cliente:
         self.private_key = None
         self.cert = None
         self.ca = None
-        self.server_socket = join_socket("127.0.0.2", 12345)
+        self.server_socket = join_tls_socket("127.0.0.2", 12345)
         #self.autoridade_cert_socket = creat_socket("127.0.0.2", 12345)
         self.pks = {}
         self.unreadMSG = 0

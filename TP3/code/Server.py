@@ -1,7 +1,6 @@
 import os
-import socket
 import threading
-from socketFuncs.socketFuncs import creat_socket, join_socket
+from socketFuncs.socketFuncs import creat_tcp_socket, join_tls_socket, join_tcp_socket
 import cryptography.x509.oid as oid
 from message import *
 
@@ -17,11 +16,10 @@ class User:
 class server:
     def __init__(self):
         # ligar à autoridade certificadora
-        self.auth_cert_socket = join_socket('127.0.0.3', 12345)
+        self.auth_cert_socket = join_tls_socket('127.0.0.3', 12345)
         self.privateKey, self.publicKey, self.ca = self.load_data_AC()
-        self.masters_con = socket(AF_INET, SOCK_STREAM)
-        self.masters_con.connect(('127.0.0.1', 12345))
-        self.client_socket, self.cs_context = creat_socket('127.0.0.2', 12345, self.ca, self.privateKey)
+        self.masters_con = join_tcp_socket('127.0.0.1', 12345)
+        self.client_socket, self.cs_context = creat_tcp_socket('127.0.0.2', 12345, self.ca, self.privateKey)
         self.uData = {}
         self.start()
         self.masters_con.close()
