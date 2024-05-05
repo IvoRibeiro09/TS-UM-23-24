@@ -18,18 +18,24 @@ class MasterUser:
             message = client_socket.recv(1024).decode()
             print(f"Mensagem recebida: {message}")
             # Criar um novo usuário usando o comando sudo
-            if message == "Criar novo usuário":
-                self.criarUser("user", "pass")
+            if "Criar novo user" in message:
+                data = message.split("Criar novo user: ")
+                print(data[1])
+                udata = data[1].split(" - ")
+                self.criarUser(udata[0], udata[1])
             # Fechar conexões
             client_socket.close()
 
     def criarUser(self, nome, pw):
+        print(nome, pw)
+        """
         try:
             os.system(f"sudo useradd -m {nome}")
             os.system(f"sudo passwd {pw}")
             print(f"Usuário {nome} criado com sucesso!")
         except Exception as e:
             print(f"Erro ao criar usuário: {e}")
+            """
     
     def criarGrupo(self, nome):
         try:

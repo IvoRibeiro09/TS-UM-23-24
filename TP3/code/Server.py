@@ -76,13 +76,12 @@ class server:
                 
                 action = rmsg.action
                 if action == '0': # registrar
-                    if rmsg.senderID in self.uData.keys():
-                        # se exister logar
-                        self.login(rmsg.senderID)
-                    else:
-                        # se n exister registar 
-                        self.registeUser(rmsg.senderID, rmsg.content)
-                    
+                    if rmsg.senderID not in self.uData.keys():
+                        r = self.registeUser(rmsg.senderID, rmsg.content)
+                        self.login(rmsg.senderID, rmsg.content, r)  
+                    else: 
+                        self.login(rmsg.senderID, rmsg.content, "SUCESS") 
+
                 elif action == '1': # pedido de entrar num grupo
                     
                     print("LOG- Cliente {} enviou uma mensagem no dia {}!".format(uid,str(datetime.datetime.now())))
@@ -111,7 +110,7 @@ class server:
                         # para eles perceberem
                         # eles vao abrir e ler
                         pass
-                elif action == '7': #escrever no ficehiro comum as mensagens recebidas
+                elif action == '6': #escrever no ficehiro comum as mensagens recebidas
                     with open(f'{rmsg.subject}.txt', "a") as arquivo:  
                         # Escrever no arquivo o conteudo com o nome dele antes cli1 - 
                         arquivo.write("Nova linha!\n")
@@ -119,22 +118,32 @@ class server:
         finally:
             c_con.close()
     
-    def login(self, nome, result=None):
-        if result != None:
-            msg = message('server', self.ca, nome, "0", "login", result, "")
-            msg.serialize(self.uData[nome].publicKey, self.privateKey)
+    def login(self, nome, pw, result):
+        if result == "SUCESS":
+            if self.uData[nome].pw != pw: 
+                result = "Invalid password!"
+        msg = message('server', self.ca, nome, "0", "login", result, "")
+        data = msg.serialize(self.uData[nome].publicKey, self.privateKey)
+        msg.send(self.uData[nome].con, data)
   
     def registeUser(self, nome, pword):
         # pedir a chave publica do nome à autoridade certificadora
-        
-        message = "Criar novo usuário"
-        # Enviar mensagem ao master
-        self.masters_con.sendall(message.encode())
-        """if rmsg.send(self.masters_con) == "SUCESS":
-            print("LOG- Cliente {} registado no dia {}!".format(nome, str(datetime.datetime.now())))
+        msg = message('server', "", 'authcert', 2, 'ask4pk', nome, "")
+        msg.send_none_serialized(self.auth_cert_socket)
+        data = msg.recieve(self.auth_cert_socket)
+        dicionario = eval(data)
+        if dicionario['content'] != 'unknown user':
+            # Enviar mensagem ao master
+            mensagem = f"Criar novo user: {nome} - {pword}"
+            self.masters_con.sendall(mensagem.encode())
+            data = self.masters_con.recv(1024)
+            if data == "SUCESS":
+                print("LOG- Cliente {} registado no dia {}!".format(nome, str(datetime.datetime.now())))
+                return data
+            else:
+                raise "ERROR: criar utilizador!"
         else:
-            raise ValueError("ERROR: criar utilizador!")"""
-        self.login(nome, "Invalid inicialization!")
+            return 'ERROR: Unknown User!'
         
     def registeGruop(self, nome):
         message = f"Criar grupo: {nome}"
