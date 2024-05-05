@@ -10,17 +10,17 @@ import json
 import csv
 
 ##meter um cifragem qualquer para a chave privada para nao guarda la simples(o certificado tambem)
-def load_data(path,password=None):
+def load_data(password=None):
     with open("SERVER.p12", "rb") as file:
         p12_data = file.read()
     private_key, certificate, _ = pkcs12.load_key_and_certificates(p12_data, password)
     
     public_key = private_key.public_key()
     
-    with open("server/SERVER.crt", "wb+") as file:
+    with open("auth_server/SERVER.crt", "wb+") as file:
         certificate_1 = certificate.public_bytes(encoding=serialization.Encoding.PEM)
         file.write(certificate_1)
-    with open("server/SERVER.pem", "wb+") as file:
+    with open("auth_server/SERVER.pem", "wb+") as file:
         private_key_1 = private_key.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.PKCS8,
@@ -127,8 +127,7 @@ class Server:
         else:
             mensagem_env = message("server", self.certificate, uid,"4", "", chave.decode("utf-8"),"")
         
-        chave_recetor = self.get_chave(uid)
-        cypher = mensagem_env.serialize(chave_recetor, self.private_key)
+        cypher = mensagem_env.serialize(self.pk, self.private_key)
         
         return cypher
     
@@ -150,8 +149,7 @@ class Server:
         else:
             mensagem_env = message("server", self.certificate, uid,"3", "", str(response),"")
         
-        chave_recetor = self.get_chave(uid)
-        cypher = mensagem_env.serialize(chave_recetor, self.private_key)
+        cypher = mensagem_env.serialize(self.pk, self.private_key)
         
         return cypher
     
