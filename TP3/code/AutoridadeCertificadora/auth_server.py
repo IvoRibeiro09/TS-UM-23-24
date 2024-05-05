@@ -9,27 +9,8 @@ import os
 import json
 import csv
 
-
-# remover depois
-def load_data(password=None):
-    with open("SERVER.p12", "rb") as file:
-        p12_data = file.read()
-    private_key, certificate, _ = pkcs12.load_key_and_certificates(p12_data, password, backend=default_backend())
-    public_key = private_key.public_key()
-    with open("SERVER.crt", "wb+") as file:
-        certificate_1 = certificate.public_bytes(encoding=serialization.Encoding.PEM)
-        file.write(certificate_1)
-    with open("SERVER.pem", "wb+") as file:
-        private_key_1 = private_key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=serialization.NoEncryption()
-        )
-        file.write(private_key_1)
-    return private_key, public_key, certificate
-
 ##meter um cifragem qualquer para a chave privada para nao guarda la simples(o certificado tambem)
-def load_data(password=None):
+def load_data(path,password=None):
     with open("SERVER.p12", "rb") as file:
         p12_data = file.read()
     private_key, certificate, _ = pkcs12.load_key_and_certificates(p12_data, password)
@@ -48,38 +29,15 @@ def load_data(password=None):
         file.write(private_key_1)
     
     return private_key, public_key, certificate
+
+def load_usersdata(uid,password=None):
+    with open(f"auth_server/users/{uid}.p12", "rb") as file:
+        p12_data = file.read()
+    private_key, certificate, _ = pkcs12.load_key_and_certificates(p12_data, password)
     
-## falta a cifragem dos ficheiros se for necessario
-class User:
-    def __init__(self,uid):
-        self.uid = uid
-        if not os.path.exists(f"auth_server/users/{uid}"):
-            os.makedirs(f"auth_server/users/{uid}")
-
-    def create_user(self):
-        None
-
-    def verifica_credenciais(self,username,password):
-        None
-
-    def get_cert(self,uid,sk):
-        assert self.uid == uid, "Nao tem permissoes para escrever neste user"
-        
-        with open(f"auth_server/users/{uid}/{uid}.crt", "rb") as f:
-                m = f.read()
-
-        return m
+    public_key = private_key.public_key()
     
-    def get_pem(self,uid,sk):
-        assert self.uid == uid, "Nao tem permissoes para escrever neste user"
-        
-        with open(f"auth_server/users/{uid}/{uid}.pem", "rb") as f:
-                m = f.read()
-
-        return m
-
-    def get_uid(self):
-        return self.uid
+    return private_key, public_key, certificate
 
 class Server:
     def __init__(self, host, port):
@@ -88,13 +46,13 @@ class Server:
         if not os.path.exists("auth_server/users"):
             os.makedirs(f"auth_server/users")
 
-        arquivo_existe = os.path.isfile("auth_server/log.csv")
-        with open("auth_server/log.csv", mode='a+', newline='') as arquivo_csv:
-            escritor_csv = csv.writer(arquivo_csv)
-            
-            # Se o arquivo não existir, adicionar um cabeçalho
-            if not arquivo_existe:
-                escritor_csv.writerow(['IP/PORT','TIPO_DE_PEDIDO','TIME', 'CONTENT'])
+        #arquivo_existe = os.path.isfile("auth_server/log.csv")
+        #with open("auth_server/log.csv", mode='a+', newline='') as arquivo_csv:
+        #    escritor_csv = csv.writer(arquivo_csv)
+        #    
+        #    # Se o arquivo não existir, adicionar um cabeçalho
+        #    if not arquivo_existe:
+        #        escritor_csv.writerow(['IP/PORT','TIPO_DE_PEDIDO','TIME', 'CONTENT'])
 
         private_key, public_key, certificate = load_data()
         self.private_key = private_key
@@ -112,29 +70,24 @@ class Server:
         self.host = host
         self.port = port
 
-        self.users = []
-        uids = [nome for nome in os.listdir('auth_server/users')]
-        for uid in uids:
-            user = User(uid)
-            self.users.append(user)
+        self.credenciais = {"CLI1":{'pass':"123",'uid':'CLI1'},"CLI2":{'pass':"123",'uid':'CLI2'},"CLI3":{'pass':"123",'uid':'CLI3'}}
 
         print(f"Servidor aberto ({self.host} : {self.port})")
 
-    def get_user(self,UID):
-        for user in self.users:
-            if user.get_uid() == UID:
-                return user
+    def verifica_credenciais(self,username,password):
+        if self.credenciais[username]['pass'] == password:
+            return self.credenciais[username]['uid']
+        else:
+            return -1
+    
+    def get_chave(self,uid):
+        if not os.path.exists(f"auth_server/users/{uid}"):
+            return -1
 
-    def get_chave(self,UID):
-        user = self.get_user(UID)
-        if user != -1 :
-            crt = x509.load_pem_x509_certificate( user.get_crt(UID,self.sk), default_backend())
-        if crt != -1:
-            chave = crt.public_key()
+        _, public_key, _ = load_usersdata(uid)
 
-        return chave
+        return public_key
         
-
     def new_client(self,UID,mensagem_rec):
         user = self.get_user(UID)
         if user != None:
@@ -166,14 +119,10 @@ class Server:
     def ask_key(self,uid,mensagem_rec):
         ## buscar a chave pretendida
         uid_pretendido = mensagem_rec.content
-        user = self.get_user(uid_pretendido)
-        if user != -1 :
-            crt = x509.load_pem_x509_certificate( user.get_crt(uid_pretendido,self.sk), default_backend())
-        if crt != -1:
-            chave = crt.public_key()
+        chave = self.get_chave(uid_pretendido)
 
         #mensagem de resposta
-        if user == -1 or crt == -1 or chave == -1 :
+        if chave == -1:
             mensagem_env = message("server", self.certificate, uid,"4", "Nao existe chave", "unknown user","")
         else:
             mensagem_env = message("server", self.certificate, uid,"4", "", chave.decode("utf-8"),"")
@@ -183,19 +132,23 @@ class Server:
         
         return cypher
     
-    def ask_dados(self,uid,mensagem_rec):
+    def ask_dados(self,mensagem_rec):
         ## buscar os dados pessoais
-        user = self.get_user(uid)
-        autenticaçao = user.verifica_credenciais(mensagem_rec.username,mensagem_rec.password)
-        if user != -1 and autenticaçao != -1:
-            crt = user.get_crt(uid,self.sk)
-            pem = user.get_pem()
+        uid = self.verifica_credenciais(mensagem_rec.username,mensagem_rec.password)
+        if not os.path.exists(f"auth_server/users/{uid}"):
+            user = -1
+        else:
+            user = 1
+        
+        if user != -1 and uid != -1:
+            private_key, public_key, certificate = load_usersdata(uid)
+            response = {'sk':private_key,'pk':public_key,'crt':certificate}
 
         #mensagem de resposta
-        if user == -1 and autenticaçao == -1:
+        if user == -1 and uid == -1:
             mensagem_env = message("server", self.certificate, uid,"3", "credenciais erradas", "unknown user","")
         else:
-            mensagem_env = message("server", self.certificate, uid,"3", "", crt.decode("utf-8"),"")
+            mensagem_env = message("server", self.certificate, uid,"3", "", str(response),"")
         
         chave_recetor = self.get_chave(uid)
         cypher = mensagem_env.serialize(chave_recetor, self.private_key)
