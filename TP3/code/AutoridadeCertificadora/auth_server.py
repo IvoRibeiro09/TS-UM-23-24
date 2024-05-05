@@ -127,7 +127,7 @@ class Server:
         else:
             mensagem_env = message("server", self.certificate, uid,"4", "", chave.decode("utf-8"),"")
         
-        cypher = mensagem_env.serialize(self.pk, self.private_key)
+        cypher = str(mensagem_env.generate()).enconde('utf-8')
         
         return cypher
     
@@ -226,7 +226,7 @@ class Server:
             self.server_socket.close()
 
 # Configurações do servidor
-HOST = '127.0.0.2'  # Endereço IP local
+HOST = '127.0.0.3'  # Endereço IP local
 PORT = 12345        # Porta a ser utilizada
 
 # Criar e iniciar o servidor
