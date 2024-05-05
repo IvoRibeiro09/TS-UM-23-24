@@ -4,10 +4,9 @@ from ssl import SSLContext, PROTOCOL_TLS_SERVER
 from cryptography.hazmat.primitives.serialization import pkcs12
 from cryptography.hazmat.primitives import serialization, hashes
 import cryptography.x509.oid as oid
-from message import * 
+from ..message import * 
 import os
 import json
-import csv
 
 ##meter um cifragem qualquer para a chave privada para nao guarda la simples(o certificado tambem)
 def load_data(password=None):

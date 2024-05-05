@@ -1,41 +1,74 @@
 from cryptography.hazmat.primitives.serialization import pkcs12
+from cryptography.hazmat.backends import default_backend
 from message import *
 from socketFuncs.socketFuncs import join_tls_socket
-import os
+import os, pwd
 
+path = 'BD/'
+
+def load_data(file, password=None):
+    with open(f"{file}.p12", "rb") as file:
+        p12_data = file.read()
+    private_key, certificate, _ = pkcs12.load_key_and_certificates(p12_data, password, backend=default_backend())
+    public_key = private_key.public_key()
+    return private_key, public_key, certificate
+
+def extract_public_key(cert):
+    """Retorna a chave publica do certificado. 
+    Entrada: caminho certificado, Saída: public_key"""
+    with open(cert, 'rb') as file:
+        file_data = file.read()
+        cert = x509.load_pem_x509_certificate(file_data)
+        public_key = cert.public_key()
+        public_key_out = public_key.public_bytes(encoding=serialization.Encoding.PEM, format=serialization.PublicFormat.SubjectPublicKeyInfo)
+        public_key_out = serialization.load_pem_public_key(public_key_out)
+    return public_key_out
 
 class cliente:
     def __init__(self):
         self.id, self.pw = self.login()
-        self.public_key = None
-        self.private_key = None
-        self.cert = None
-        self.ca = None
+        self.switch_user()
+        self.privateKey, self.publicKey, self.ca = load_data(self.id)
         self.server_socket = join_tls_socket("127.0.0.2", 12345)
-        #self.autoridade_cert_socket = creat_socket("127.0.0.2", 12345)
-        self.pks = {}
+        self.pks = {"server": extract_public_key('SERVER.crt')}
         self.unreadMSG = 0
         self.liveMsg = 0
         self.popup = "############"
         self.start()
         self.server_socket.close()
-        #self.autoridade_cert_socket.close()
 
     def login(self):
         nome = input("Nome de usuário: ")
         password = input("Password: ")
-        # ligar ao autoridade a pedir os seus dados
-        content = f"Nome: {nome};PW: {password}"
+        return nome, password
+    
+    def start(self):
+        self.register()
+        self.sendpk()
+        #self.server_handle()
+        self.menu()
+    
+    def register(self):
         # encryptar e assinar o conteudo e mandar a assinatura no message
-        msg = message(self.id, self.ca, 'server', "0", "login", content, "")
+        msg = message(self.id, self.ca, 'server', "0", "login", self.pw, "")
+        msg.serialize(self.pks['server'], self.privateKey)
         msg.send(self.server_socket)
         rmsg = message()
         rmsg.recieve(self.server_socket)
         if rmsg.content == "SUCESS":
             print("Login efetuado!")
-            return nome, password
         else:
-            raise ValueError("Erro no Login!")
+            raise ValueError(rmsg.content)
+    
+    def sendpk(self):
+        msg = message(self.id, self.ca, 'server', "7", "sendpk", self.publicKey, "")
+        msg.serialize(self.pks['server'], self.privateKey)
+        msg.send(self.server_socket)
+
+    def switch_user(self):
+        # Definir o UID do usuário do sistema Linux para outro usuário válido
+        new_user = "server"
+        os.setuid(pwd.getpwnam(new_user).pw_uid)
         
     def updateMenu(self):
         if self.unreadMSG == 0 and self.liveMsg == 0:
@@ -44,19 +77,9 @@ class cliente:
             self.popup = " {} New Message! ".format(self.unreadMSG)
         elif self.unreadMSG > 0 and self.liveMsg > 0:
             self.popup = " {} New Message! AND {} Live Chat! ".format(self.unreadMSG, self.liveMsg)
-        self.help = """#################{}#################
-1- Check MAilBox!
-2- Check Live Chat!
-3- Send Message!
-4- Start Live Chat!
-9- Close app!
-#################{}#################\n""".format(self.popup, "#"*len(self.popup))
+        self.help = """{}\n1- Check MAilBox!\n2- Check Live Chat!\n3- Send Message!\n4- Start Live Chat!\n9- Close app!{}\n""".format((12*"#")+self.popup+(12*"#"), "#"*(24+len(self.popup)))
         
-    def start(self):
-        #self.register()
-        #self.server_handle()
-        self.menu()
-
+    """
     def register(self):
         # peço a chave publica do server
         # envio pedido de registro no server
@@ -65,7 +88,7 @@ class cliente:
         messagem.serialize_public_key()
         cypher = messagem.serialize(public_key_server, self.sk)
         self.socket_send_msg(cypher)
-
+    """
     def server_handle(self):
         while self.status_socket:
             data = self.socket_recieve_msg(self.status_socket)

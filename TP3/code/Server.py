@@ -115,6 +115,9 @@ class server:
                         # Escrever no arquivo o conteudo com o nome dele antes cli1 - 
                         arquivo.write("Nova linha!\n")
                     pass
+
+                elif action == '7': # receber pk de um user
+                    pass
         finally:
             c_con.close()
     
