@@ -1,3 +1,4 @@
+import datetime
 import os
 import threading
 from socketFuncs.socketFuncs import creat_tcp_socket, join_tls_socket, join_tcp_socket
@@ -9,15 +10,17 @@ class User:
         self.id = id
         self.pw = pw
         self.publicKey = pk
+        self.con = None
         self.unreadmsg = []
         self.livechats = []
 
-
 class server:
-    def __init__(self):
+    def __init__(self, uname, pw):
+        self.username = uname
+        self.password = pw
         # ligar à autoridade certificadora
         self.auth_cert_socket = join_tls_socket('127.0.0.3', 12345)
-        self.privateKey, self.publicKey, self.ca = self.load_data_AC()
+        self.auth_cert_publickey, self.privateKey, self.publicKey, self.ca = self.load_data_AC()
         self.masters_con = join_tcp_socket('127.0.0.1', 12345)
         self.client_socket, self.cs_context = creat_tcp_socket('127.0.0.2', 12345, self.ca, self.privateKey)
         self.uData = {}
@@ -25,7 +28,17 @@ class server:
         self.masters_con.close()
 
     def load_data_AC(self):
+        msg = message('server', "", 'authcert', 2, 'ask4pk', 'auth_cert', "")
+        msg.send_none_serialized(self.auth_cert_socket)
+        rmsg = message()
+        data = rmsg.recieve(self.auth_cert_socket)
+        dict = eval(data)
+        print(dict)
+        #{'sk':private_key,'pk':public_key,'crt':certificate}
         # msg para a autoriDADE certificadora a pedir os meus dados
+        dict = {username:self.username, password:self.password}
+        msg = message('server', "", 'authcert', 3, 'ask4data', str(dict), "")
+        msg.send
         pass
 
     def start(self):
@@ -78,10 +91,30 @@ class server:
                     pass
 
                 elif action == '3' : # envio de mensagem 
+                    
                     # guradar a mensagem numa pasta
                     # atualizar o ficehiro de logs do utilizador para o qual enviamos
                     pass
                 elif action == '4': # pedido de livechat
+                    if rmsg.content in self.uData.keys() and self.uData[rmsg.content].con != None:
+                        msg = message('server', self.ca, rmsg.content, '5', 'livechat', rmsg.senderID, "")
+                        msg.serialize(self.uData[rmsg.content].publicKey, self.privateKey)
+                        msg.send(self.uData[rmsg.content].c_con)
+                    else: 
+                        #error response
+                        pass
+                elif action == '5': # resposta a pedido de livechat
+                    if rmsg.content == 'Accept':
+                        # abrir um ficehiro no live msg com permissoes de leitura dos dois clientes
+                        # e enviar a indicação aos dois clientes com o nome do ficehiro
+                        # a escrever tem ser cli1 - o que ele escreveu
+                        # para eles perceberem
+                        # eles vao abrir e ler
+                        pass
+                elif action == '7': #escrever no ficehiro comum as mensagens recebidas
+                    with open(f'{rmsg.subject}.txt', "a") as arquivo:  
+                        # Escrever no arquivo o conteudo com o nome dele antes cli1 - 
+                        arquivo.write("Nova linha!\n")
                     pass
         finally:
             c_con.close()
@@ -112,7 +145,10 @@ class server:
         self.masters_con.sendall(message.encode())
 
 
-server()
+
+username = 'server'
+password = 'root'
+server(username, password)
 #  sudo -u server python3 serverAPI.py
 
 # Colocar permissões de leitura aos menbros do grupo MailViewer

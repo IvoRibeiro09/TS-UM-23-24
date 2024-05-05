@@ -24,13 +24,13 @@ def creat_tls_socket(ip , port, cert, privateKey):
 
 def join_tls_socket(host, port):
     context = create_default_context()
-    context.check_hostname= False
+    context.check_hostname = False
     context.verify_mode = CERT_NONE
     sock = create_connection((host, port))
     return context.wrap_socket(sock, server_hostname=host)
     
 def creat_tcp_socket(ip, port):
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket = socket(AF_INET, SOCK_STREAM)
     server_socket.bind((ip, port))
     return server_socket
 

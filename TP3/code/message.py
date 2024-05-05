@@ -230,11 +230,16 @@ class message:
         pem_bytes = self.content.encode('utf-8')
         return  serialization.load_pem_public_key(pem_bytes)
     
-    def send(self, socket):
+    def send_none_serialized(self, socket):
         msg = self.generate()
         size = len(msg)
         tamanho_codificado = size.to_bytes(4, byteorder='big')
         mensagem_com_tamanho = tamanho_codificado + msg
+        socket.sendall(mensagem_com_tamanho)
+    
+    def send(self, socket, content):
+        tamanho_codificado = len(content).to_bytes(4, byteorder='big')
+        mensagem_com_tamanho = tamanho_codificado + content
         socket.sendall(mensagem_com_tamanho)
 
     def recieve(self, socket):
