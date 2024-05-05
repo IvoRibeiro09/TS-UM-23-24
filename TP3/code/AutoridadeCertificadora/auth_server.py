@@ -116,18 +116,18 @@ class Server:
         
         self.users.append(cl)
     
-    def ask_key(self,uid,mensagem_rec):
+    def ask_key(self,mensagem_rec):
         ## buscar a chave pretendida
         uid_pretendido = mensagem_rec.content
         chave = self.get_chave(uid_pretendido)
 
         #mensagem de resposta
         if chave == -1:
-            mensagem_env = message("server", self.certificate, uid,"4", "Nao existe chave", "unknown user","")
+            mensagem_env = message("server", self.certificate, "","2", "Nao existe chave", "unknown user","")
         else:
-            mensagem_env = message("server", self.certificate, uid,"4", "", chave.decode("utf-8"),"")
+            mensagem_env = message("server", self.certificate, "","2", "", chave.decode("utf-8"),"")
         
-        cypher = str(mensagem_env.generate()).enconde('utf-8')
+        cypher = json.dumps(mensagem_env.generate()).enconde('utf-8')
         
         return cypher
     
@@ -179,31 +179,35 @@ class Server:
                 data = self.socket_recieve_msg(connection)
                 if data == -1:
                     break
-
-                mensagem_rec = message()
-                valid = mensagem_rec.deserialize(data, self.private_key)
-                               
-                if valid == -1:
-                    print("MSG SERVICE: verification error!")
-                    break
                 
-                action = mensagem_rec.action
-                if action == '0': ################# registrar
-                    self.new_client(mensagem_rec)
-                else:
-                    for attribute in mensagem_rec.senderCA.subject:
-                        if attribute.oid == oid.NameOID.PSEUDONYM:
-                            uid = attribute.value
-                            break
-                    
-                    assert uid == mensagem_rec.senderID, "Erro utilizador invalido"
+                try:
+                    data = json.loads(data.decode('utf-8'))
+                    if data.action == '2': ############### pedir chave publica
+                        self.ask_key(data)
+                except:
 
-                    if action == '1': ############### registrar grupo
-                        self.new_group(mensagem_rec,data)
-                    elif action == '2': ############### pedir chave publica
-                        self.ask_key(mensagem_rec,data)
-                    elif action == '3': ############### pedir dados pessoais
-                        self.ask_dados(mensagem_rec,data)
+                    mensagem_rec = message()
+                    valid = mensagem_rec.deserialize(data, self.private_key)
+                                
+                    if valid == -1:
+                        print("MSG SERVICE: verification error!")
+                        break
+                    
+                    action = mensagem_rec.action
+                    if action == '0': ################# registrar
+                        self.new_client(mensagem_rec)
+                    else:
+                        for attribute in mensagem_rec.senderCA.subject:
+                            if attribute.oid == oid.NameOID.PSEUDONYM:
+                                uid = attribute.value
+                                break
+                        
+                        assert uid == mensagem_rec.senderID, "Erro utilizador invalido"
+
+                        if action == '1': ############### registrar grupo
+                            self.new_group(mensagem_rec,data)
+                        elif action == '3': ############### pedir dados pessoais
+                            self.ask_dados(mensagem_rec,data)
                     
         finally:
             # Fechar a conexão com o cliente
