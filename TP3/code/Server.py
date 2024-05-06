@@ -103,7 +103,10 @@ class server:
                     valido = self.guardar_mensagem(rmsg)
                     # atualizar o ficheiro de logs do utilizador para o qual enviamos
                     if valido>0:
-                        self.user_logs(rmsg.reciverID,rmsg,valido)
+                        print(f"LOG- Mensagem recebida do utlizador {rmsg.senderID} para o utilizador {rmsg.reciverID}.")
+                        valido = self.user_logs(rmsg.reciverID,rmsg,valido)
+                    else:
+                        print(f"LOG- Erro ao guardar mensagem do utlizador {rmsg.senderID} na pasta do utilizador {rmsg.reciverID}.")
                 elif action == '4': # pedido de livechat
                     if rmsg.content in self.uCons.keys() and self.uData[rmsg.content].con != None:
                         msg = message('server', self.ca, rmsg.content, '5', 'livechat', rmsg.senderID, "")
