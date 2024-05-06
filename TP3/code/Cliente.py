@@ -22,6 +22,7 @@ class cliente:
         self.server_socket.close()
 
     def start(self):
+        if not os.path.exists(f"DataBase/{self.username}"): os.makedirs(f"DataBase/{self.username}")
         self.menu()
         
     def updateMenu(self):
