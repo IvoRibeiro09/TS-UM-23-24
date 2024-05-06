@@ -8,6 +8,7 @@ from message import *
 from Auth_cert.Auth_cert import load_data
 
 serverPath = "DataBase/server/"
+path = "DataBase/"
 
 def get_user_pk(nome):
     if not os.path.exists(f"{serverPath}pk-{nome}.pem"):
@@ -131,9 +132,7 @@ class server:
                     data = msg.serialize(get_user_pk(rmsg.senderID), self.privateKey)
                     msg.send(c_con, data)
             
-                elif action == '8': # pedir chaves privadas
-                    
-                    pass
+              
         finally:
             c_con.close()
     
@@ -160,6 +159,7 @@ class server:
         # criar um fichiero com a password e outro com a pk
         write_pk_file(nome, pk)
         write_pw_file(nome, password)
+        self.setUserToGroup(nome, 'server')
         return data
             
     def registeGruop(self, nome):
@@ -195,25 +195,24 @@ class server:
         return data
 
     def guardar_mensagem(self,mensagem_rec):
-        mensagem_env = message(mensagem_rec.senderID, self.certificate, mensagem_rec.reciverID, '3', mensagem_rec.subject, mensagem_rec.content, mensagem_rec.contentsign)
+        mensagem_env = message(mensagem_rec.senderID, self.ca, mensagem_rec.reciverID, '3', mensagem_rec.subject, mensagem_rec.content, mensagem_rec.contentsign)
             
         chave_receiber = get_user_pk(mensagem_rec.reciverID)
         cypher = mensagem_env.serialize(chave_receiber, self.privateKey)
         
-        if os.path.exists(f"BD/{mensagem_rec.reciverID}"):
-            number = len(os.listdir(f"BD/{mensagem_rec.reciverID}"))
-            while os.path.exists(f"BD/{mensagem_rec.reciverID}/{number}.bin"):
+        if os.path.exists(f"{path}{mensagem_rec.reciverID}"):
+            number = len(os.listdir(f"{path}{mensagem_rec.reciverID}"))
+            while os.path.exists(f"{path}{mensagem_rec.reciverID}/{number}.bin"):
                 number+=1
-
-            with open(f"BD/{mensagem_rec.reciverID}/{number}.bin", "wb+") as file:
+            with open(f"{path}{mensagem_rec.reciverID}/{number}.bin", "wb+") as file:
                 file.write(cypher)
             return number
         else:
             return-1
 
     def user_logs(self,utilizador,msg,number):
-        if os.path.exists(f"BD/{utilizador}"):
-            with open("BD/{utilizador}/log.csv", mode='a+', newline='') as arquivo_csv:
+        if os.path.exists(f"{path}{utilizador}"):
+            with open(f"{path}{utilizador}/log.csv", mode='a+', newline='') as arquivo_csv:
                 escritor_csv = csv.writer(arquivo_csv)
                 linha = [number,msg.senderID,str(datetime.datetime.now()),msg.subject,"FALSE"]
                 escritor_csv.writerow(linha)

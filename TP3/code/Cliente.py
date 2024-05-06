@@ -22,10 +22,6 @@ class cliente:
         self.server_socket.close()
 
     def start(self):
-        print("ola\n")
-        #self.register()
-        #self.sendpk()
-        #self.server_handle()
         self.menu()
         
     def updateMenu(self):
@@ -35,18 +31,8 @@ class cliente:
             self.popup = " {} New Message! ".format(self.unreadMSG)
         elif self.unreadMSG > 0 and self.liveMsg > 0:
             self.popup = " {} New Message! AND {} Live Chat! ".format(self.unreadMSG, self.liveMsg)
-        self.help = """{}\n1- Check MAilBox!\n2- Check Live Chat!\n3- Send Message!\n
+        self.help = """{}\n1- Check MAilBox!\n2- Check Live Chat!\n3- Send Message!
 4- Start Live Chat!\n9- Close app!\n{}\n""".format((12*"#")+self.popup+(12*"#"), "#"*(24+len(self.popup)))
-        
-    def server_handle(self):
-        while self.status_socket:
-            data = self.socket_recieve_msg(self.status_socket)
-            if data == -1:
-                    break
-            mensagem_rec = message()
-            if mensagem_rec.deserialize(data, self.private_key) == -1:
-                print("MSG SERVICE: verification error!")
-                break
 
     def menu(self):
         os.system('clear')
@@ -64,6 +50,7 @@ class cliente:
             option = int(input(self.help))
      
     def send_message(self):
+        os.system('clear')
         print("\n#####################################################################")
         rid = input("Destinatário (Reciever): ")
         subject = input("Assunto (Subject): ")
