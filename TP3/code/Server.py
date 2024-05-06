@@ -66,9 +66,9 @@ class server:
                     pass
 
                 elif action == '3' : # envio de mensagem 
-                    
                     # guradar a mensagem numa pasta
-                    # atualizar o ficehiro de logs do utilizador para o qual enviamos
+                    self.guardar_mensagem(rmsg)
+                    # atualizar o ficheiro de logs do utilizador para o qual enviamos
                     pass
                 elif action == '4': # pedido de livechat
                     if rmsg.content in self.uData.keys() and self.uData[rmsg.content].con != None:
@@ -135,7 +135,21 @@ class server:
         message = f"set permissoes: {nome},{permissoes},{direc}"
         self.masters_con.sendall(message.encode())
 
+    def guardar_mensagem(self,mensagem_rec):
+        mensagem_env = message(mensagem_rec.senderID, self.certificate, mensagem_rec.reciverID, '3', mensagem_rec.subject, mensagem_rec.content, mensagem_rec.contentsign)
+            
+        chave_receiber = None
+        cypher = mensagem_env.serialize(chave_receiber, self.privateKey)
+        
+        if os.path.exists(f"BD/{mensagem_rec.reciverID}"):
+            number = len(os.listdir(f"BD/{mensagem_rec.reciverID}"))
+            while os.path.exists(f"BD/{mensagem_rec.reciverID}/{number}.bin"):
+                number+=1
 
+            with open(f"BD/{mensagem_rec.reciverID}/{number}.bin", "wb+") as file:
+                file.write(cypher)
+        else:
+            return-1
 
 username = 'server'
 password = 'root'
