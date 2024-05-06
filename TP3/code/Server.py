@@ -6,6 +6,34 @@ import cryptography.x509.oid as oid
 from message import *
 from Auth_cert.Auth_cert import load_data
 
+serverPath = "BD/server/"
+
+def get_user_pk(nome):
+    if not os.path.exists(f"{serverPath}pk-{nome}.pem"):
+       raise ValueError("User não esta na base de dados")
+    else:
+        with open(f"{serverPath}pk-{nome}.pem", "rb") as file:
+            file_data = file.read()
+        cert = x509.load_pem_x509_certificate(file_data, backend=default_backend())
+        public_key = cert.public_key()
+        public_key_out = public_key.public_bytes(encoding=serialization.Encoding.PEM, format=serialization.PublicFormat.SubjectPublicKeyInfo)
+        public_key_out = serialization.load_pem_public_key(public_key_out, backend=default_backend())
+        return public_key_out
+    
+def write_pk_file(nome, content):
+    with open(f"{serverPath}pk-{nome}.pem", "wb") as file:
+        # Serializa a chave pública no formato PEM
+        pem = content.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+        # Escreve a chave pública serializada no arquivo
+        file.write(pem)
+
+def write_pw_file(nome, content):
+    with open(f"{serverPath}pw-{nome}.pw", "wb") as file:
+        file.write(content)
+
 class server:
     def __init__(self, uname, pw):
         self.username = uname
@@ -13,11 +41,16 @@ class server:
         self.privateKey, self.publicKey, self.ca = load_data(self.username)
         self.masters_con = join_tcp_socket('127.0.0.1', 12345)
         self.client_socket, self.cs_context = creat_tls_socket('127.0.0.2', 12345, self.ca, self.privateKey)
+        self.uCons = {}
         self.start()
         self.masters_con.close()
 
     def start(self):
         if not os.path.exists("BD"): os.makedirs("BD")
+        if not os.path.exists("BD/serverBD"): os.makedirs("BD/serverBD")
+        self.registeGruop('serverBD')
+        self.setUserToGroup(self.username,'serverBD')
+        self.setGroupPermitions('serverBD','0o600', 'BD/serverBD')
         try:
             self.client_socket.listen()
             print("Servidor aberto!!")
@@ -29,10 +62,8 @@ class server:
                 client_thread = threading.Thread(target=self.handleClient, args=(client_connection, client_address))
                 client_thread.start()
         except KeyboardInterrupt:
-            print("Servidor encerrado.")
-        finally:
-            # Fechar o socket do servidor
             self.client_socket.close()
+            print("Servidor encerrado.")
 
     def handleClient(self, c_con, c_add):
         print(f"Conexão estabelecida com {c_add}")
@@ -52,10 +83,11 @@ class server:
                 action = rmsg.action
                 if action == '0': # registrar
                     r = "User já registado"
-                    if os.path.exists(f"BD/{rmsg.senderID}"):
-                        r = self.registeUser(rmsg.senderID, rmsg.content)  
+                    if not os.path.exists(f"BD/{rmsg.senderID}"):
+                        r = self.registeUser(rmsg.senderID, rmsg)  
+                        if r == "SUCESS": self.uCons[rmsg.senderID] = c_con
                     msg = message('server', self.ca, rmsg.senderID, "0", 'regist-response', r, "")
-                    data = msg.serialize(self.uData[rmsg.senderID].pk, self.privateKey)
+                    data = msg.serialize(get_user_pk(rmsg.senderID), self.privateKey)
                     msg.send(c_con, data)
 
                 elif action == '1': # pedido de entrar num grupo
@@ -71,7 +103,7 @@ class server:
                     # atualizar o ficheiro de logs do utilizador para o qual enviamos
                     pass
                 elif action == '4': # pedido de livechat
-                    if rmsg.content in self.uData.keys() and self.uData[rmsg.content].con != None:
+                    if rmsg.content in self.uCons.keys() and self.uData[rmsg.content].con != None:
                         msg = message('server', self.ca, rmsg.content, '5', 'livechat', rmsg.senderID, "")
                         msg.serialize(self.uData[rmsg.content].publicKey, self.privateKey)
                         msg.send(self.uData[rmsg.content].c_con)
@@ -93,7 +125,10 @@ class server:
                     pass
 
                 elif action == '7': # login user
-                    pass
+                    r = self.login(rmsg.senderID, rmsg.content)
+                    msg = message('server', self.ca, rmsg.senderID, "7", 'login-response', r, "")
+                    data = msg.serialize(self.uData[rmsg.senderID].pk, self.privateKey)
+                    msg.send(c_con, data)
         finally:
             c_con.close()
     
@@ -105,31 +140,33 @@ class server:
         data = msg.serialize(self.uData[nome].publicKey, self.privateKey)
         msg.send(self.uData[nome].con, data)
   
-    def registeUser(self, nome, msg_content):
+    def registeUser(self, nome, rmsg):
         # separar a password da publik key
-
+        password, pk = unpair(rmsg.content.encode('utf-8'))
+        rmsg.content = pk.decode('utf-8')
+        rmsg.deserialize_public_key()
         # criar um User de linux
-
-        # criar um user e adicionar à bd
-        pass
-        """
-        if dicionario['content'] != 'unknown user':
-            # Enviar mensagem ao master
-            mensagem = f"Criar novo user: {nome} - {pword}"
-            self.masters_con.sendall(mensagem.encode())
-            data = self.masters_con.recv(1024)
-            if data == "SUCESS":
-                print("LOG- Cliente {} registado no dia {}!".format(nome, str(datetime.datetime.now())))
-                return data
-            else:
-                raise "ERROR: criar utilizador!"
+        # Enviar mensagem ao master
+        mensagem = f"Criar novo user: {nome} - {password.decode('utf-8')}"
+        self.masters_con.sendall(mensagem.encode())
+        data = self.masters_con.recv(1024).decode('utf-8')
+        if data == "SUCESS":
+            print("LOG- Cliente {} registado no dia {}!".format(nome, str(datetime.datetime.now())))
         else:
-            return 'ERROR: Unknown User!'
-            """
+            return data
+        # criar um fichiero com a password e outro com a pk
+        write_pk_file(nome, rmsg.content)
+        write_pw_file(nome, password)
+        return data
+        
         
     def registeGruop(self, nome):
         message = f"Criar grupo: {nome}"
         self.masters_con.sendall(message.encode())
+        data = self.masters_con.recv(1024).decode('utf-8')
+        if data == "SUCESS":
+            print("LOG- Grupo {} registado no dia {}!".format(nome, str(datetime.datetime.now())))
+        return data
     
     def setGroupPermitions(self, nome, permissoes, direc):
         message = f"set permissoes: {nome},{permissoes},{direc}"

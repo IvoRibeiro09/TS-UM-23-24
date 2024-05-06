@@ -20,7 +20,7 @@ class cliente:
         return nome, password
     
     def start(self):
-        option = int(input("\n1- Register!\n2- Login!\n"))
+        option = int(input("1- Register!\n2- Login!\n"))
         while True:
             if option == 1:
                 self.register()
@@ -45,7 +45,7 @@ class cliente:
             raise ValueError(rmsg.content)
     
     def sendLogin(self):
-        msg = message(self.id, self.ca, 'server', "0", "login", self.pw, "")
+        msg = message(self.id, self.ca, 'server', "7", "login", self.pw, "")
         msg.serialize(self.pks['server'], self.privateKey)
         msg.send(self.server_socket)
         rmsg = message()

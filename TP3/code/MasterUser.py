@@ -11,36 +11,45 @@ class MasterUser:
     def start(self):
         self.server_socket.listen(1)            
         print("Aguardando conexões...")
-        while True:
-            # Aceitar conexão
-            client_socket, client_address = self.server_socket.accept()
-            # Receber mensagem do cliente
-            message = client_socket.recv(1024).decode()
-            print(f"Mensagem recebida: {message}")
-            # Criar um novo usuário usando o comando sudo
-            if "Criar novo user" in message:
-                data = message.split("Criar novo user: ")
-                print(data[1])
-                udata = data[1].split(" - ")
-                self.criarUser(udata[0], udata[1])
-            # Fechar conexões
-            client_socket.close()
+        try:
+            while True:
+                # Aceitar conexão
+                client_socket, client_address = self.server_socket.accept()
+                # Receber mensagem do cliente
+                message = client_socket.recv(1024).decode()
+                print(f"Mensagem recebida: {message}")
+                # Criar um novo usuário usando o comando sudo
+                if "Criar novo user" in message:
+                    data = message.split(": ")
+                    udata = data[1].split(" - ")
+                    r = self.criarUser(udata[0], udata[1])
+                    client_socket.sendall(r.encode('utf-8'))
+                elif "Criar grupo:" in message:
+                    data = message.split(": ")
+                    r = self.criarGrupo(data[1])
+                    client_socket.sendall(r.encode('utf-8'))
+                # Fechar conexões
+                client_socket.close()
+        except KeyboardInterrupt:
+            self.server_socket.close()
+            print("Master encerrado.")
 
     def criarUser(self, nome, pw):
-        print(nome, pw)
-        """
         try:
-            os.system(f"sudo useradd -m {nome}")
-            os.system(f"sudo passwd {pw}")
+            if os.system(f"sudo useradd -m {nome}") < 0:
+                return "Utilizador de sistema já existente"
+            os.system(f"echo '{nome}:{pw}' | sudo chpasswd")
             print(f"Usuário {nome} criado com sucesso!")
+            return "SUCESS"
         except Exception as e:
             print(f"Erro ao criar usuário: {e}")
-            """
     
     def criarGrupo(self, nome):
         try:
-            os.system(f"sudo groupadd {nome}")
+            if os.system(f"sudo groupadd {nome}") < 0:
+                return "Grupo já existe!"
             print(f"Grupo {nome} criado com sucesso!")
+            return "SUCESS"
         except Exception as e:
             print(f"Erro ao criar grupo: {e}")
 
