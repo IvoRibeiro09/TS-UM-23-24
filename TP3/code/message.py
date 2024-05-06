@@ -68,7 +68,8 @@ def decrypt(encrypted_data, receiver_sk):
     # Inicializar o objeto decryptor com o IV e o tag de autenticação
     decryptor = Cipher(
         algorithms.AES(aes_key),
-        modes.GCM(iv, tag)
+        modes.GCM(iv, tag),
+        backend=default_backend()
     ).decryptor()
     # Descriptografar os dados
     plaintext = decryptor.update(ciphertext) + decryptor.finalize()
@@ -228,7 +229,7 @@ class message:
 
     def deserialize_public_key(self):
         pem_bytes = self.content.encode('utf-8')
-        return  serialization.load_pem_public_key(pem_bytes)
+        return  serialization.load_pem_public_key(pem_bytes, backend=default_backend())
     
     def send_none_serialized(self, socket):
         msg = self.generate()
