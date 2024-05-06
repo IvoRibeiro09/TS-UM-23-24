@@ -3,7 +3,7 @@ from socketFuncs.socketFuncs import join_tls_socket
 from Auth_cert.Auth_cert import load_data, extract_public_key
 import os, pwd, sys
 
-path = 'BD/'
+path = 'DataBase/'
 
 class cliente:
     def __init__(self, name, pw):
@@ -11,7 +11,10 @@ class cliente:
         self.password = pw
         self.privateKey, self.publicKey, self.ca = load_data(self.username)
         self.server_socket = join_tls_socket("127.0.0.2", 12345)
-        self.pks = {"server": extract_public_key('SERVER.crt')}
+        self.pks = {"server": extract_public_key('SERVER.crt'), 
+                    "CLI1":extract_public_key('CLI1.crt'),
+                    "CLI2":extract_public_key('CLI2.crt'),
+                    "CLI3":extract_public_key('CLI3.crt')}
         self.unreadMSG = 0
         self.liveMsg = 0
         self.popup = "############"
@@ -70,9 +73,8 @@ class cliente:
         # se sim 
         # se não pedir ao server
         if rid not in self.pks.keys():
-            if self.ask_4_pk(rid) != 0:
-                print("MSG Serviço: Destinatŕio inválido!\n(MSG SERVICE: unknown user!)")
-                return -1
+            print("MSG Serviço: Destinatŕio inválido!\n(MSG SERVICE: unknown user!)")
+            return -1
         """Verifica se a mensagem possui menos de 1000 bytes.
         Assina, cifra, serializa e envia as mensagens ao server"""
         # Verificar tamanho do conteúdo menor que 1000 bytes
@@ -83,12 +85,12 @@ class cliente:
         public_key_server = self.pks['server']
         public_key_reciever = self.pks[rid]
         # Cifrar conteúdo. 1 para o servidor receber a mensagem.
-        msg = message(self.id, self.ca, rid, '1', subject, content,"")
+        msg = message(self.username, self.ca, rid, '3', subject, content,"")
         # encriptar o conteudo
-        msg.encrypt_content(public_key_reciever,self.sk)
+        msg.encrypt_content(public_key_reciever,self.privateKey)
         # Serializar a mensagem
-        serialized_msg = msg.serialize(public_key_server, self.sk)
-        self.socket_send_msg(serialized_msg)
+        serialized_msg = msg.serialize(public_key_server, self.privateKey)
+        msg.send(self.server_socket, serialized_msg)
         print('Mensagem enviada!(Message sent!)')  
 
     def displayMailBox(self):
@@ -109,26 +111,6 @@ class cliente:
         print("{:<30}{}".format(left_text, right_text))
         pass
 
-    def ask_4_pk(self, rid):
-        public_key_server = self.pks['server']
-        msg = message(self.id, self.ca, 'server', '4', "ask_4_pk", rid, "")
-        # Serializar a mensagem
-        serialized_msg = msg.serialize(public_key_server, self.sk)
-        self.socket_send_msg(serialized_msg)
-        #print('Pedido de PK enviado!')
-        # receber chave
-        recieved_message = self.socket_recieve_msg()
-        #dá serealize da chave
-        rmsg = message()
-        valid = rmsg.deserialize(recieved_message, self.sk)
-        if valid == -1:
-            print("MSG Serviço: Erro na verificação da assinatura!\n(MSG SERVICE: verification error!)")
-            return -1
-        if "unknown" not in rmsg.content:
-            self.pks[rid] = serialization.load_pem_public_key(rmsg.content.encode('utf-8'))
-            #print("Chave do {} recebida!".format(rid))
-            return 0
-        return -1
     
     def ask_queue(self, type):
         public_key_server = self.pks['server']

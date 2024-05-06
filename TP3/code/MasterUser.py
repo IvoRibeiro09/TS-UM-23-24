@@ -51,7 +51,7 @@ class MasterUser:
 
     def criarUser(self, nome, pw):
         try:
-            if os.system(f"sudo useradd -m {nome}") < 0:
+            if os.system(f"sudo useradd -m {nome}") != 0:
                 return "Utilizador de sistema já existente"
             os.system(f"echo '{nome}:{pw}' | sudo chpasswd")
             if not os.path.exists(f"DataBase/{nome}"): os.makedirs(f"DataBase/{nome}")

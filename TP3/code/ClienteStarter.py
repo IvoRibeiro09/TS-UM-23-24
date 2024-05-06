@@ -23,11 +23,12 @@ class cliente:
         option = int(input("1- Register!\n2- Login!\n"))
         while True:
             if option == 1:
-                self.register()
-                return
+                r = self.register() 
             elif option == 2:
-                self.sendLogin()
-                return 
+                r = self.sendLogin()
+            if r == 0: break
+            option = int(input("1- Register!\n2- Login!\n"))
+               
     
     def register(self):
         # encryptar e assinar o conteudo e mandar a assinatura no message
@@ -42,20 +43,24 @@ class cliente:
         rmsg.deserialize(cypher, self.privateKey)
         if rmsg.content == "SUCESS":
             print("User Registado com sucesso!")
+            return 0
         else:
             print(f"{rmsg.content}")
-            raise ValueError(f"{rmsg.content}")
+            return -1
     
     def sendLogin(self):
         msg = message(self.id, self.ca, 'server', "7", "login", self.pw, "")
-        msg.serialize(self.pks['server'], self.privateKey)
-        msg.send(self.server_socket)
+        cypher = msg.serialize(self.pks['server'], self.privateKey)
+        msg.send(self.server_socket, cypher)
         rmsg = message()
-        rmsg.recieve(self.server_socket)
+        data = rmsg.recieve(self.server_socket)
+        rmsg.deserialize(data, self.privateKey)
         if rmsg.content == "SUCESS":
             print("Login efetuado com sucesso!")
+            return 0
         else:
-            raise ValueError(rmsg.content)
+            print(f"{rmsg.content}")
+            return -1
 
     def switch_user(self):
         # Definir o UID do usuário do sistema Linux para outro usuário válido

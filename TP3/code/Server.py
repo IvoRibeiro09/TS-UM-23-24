@@ -27,6 +27,10 @@ def write_pk_file(nome, content):
         # Escreve a chave pública serializada no arquivo
         file.write(pem)
 
+def get_user_pw(nome):
+    with open(f"{serverPath}pw-{nome}.pw", "rb") as file:
+        return file.read()
+
 def write_pw_file(nome, content):
     with open(f"{serverPath}pw-{nome}.pw", "wb") as file:
         file.write(content)
@@ -124,18 +128,20 @@ class server:
                 elif action == '7': # login user
                     r = self.login(rmsg.senderID, rmsg.content)
                     msg = message('server', self.ca, rmsg.senderID, "7", 'login-response', r, "")
-                    data = msg.serialize(self.uData[rmsg.senderID].pk, self.privateKey)
+                    data = msg.serialize(get_user_pk(rmsg.senderID), self.privateKey)
                     msg.send(c_con, data)
+            
+                elif action == '8': # pedir chaves privadas
+                    
+                    pass
         finally:
             c_con.close()
     
-    def login(self, nome, pw, result):
-        if result == "SUCESS":
-            if self.uData[nome].pw != pw: 
-                result = "Invalid password!"
-        msg = message('server', self.ca, nome, "0", "login", result, "")
-        data = msg.serialize(self.uData[nome].publicKey, self.privateKey)
-        msg.send(self.uData[nome].con, data)
+    def login(self, nome, pw):
+        if get_user_pw(nome).decode('utf-8') != pw: 
+            return "Invalid password!"
+        else:
+            return "SUCESS"
   
     def registeUser(self, nome, rmsg):
         # separar a password da publik key
