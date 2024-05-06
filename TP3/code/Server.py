@@ -1,45 +1,20 @@
 import datetime
 import os
 import threading
-from socketFuncs.socketFuncs import creat_tcp_socket, join_tls_socket, join_tcp_socket
+from socketFuncs.socketFuncs import creat_tls_socket, join_tcp_socket
 import cryptography.x509.oid as oid
 from message import *
-
-class User:
-    def __init__(self, id, pw, pk):
-        self.id = id
-        self.pw = pw
-        self.publicKey = pk
-        self.con = None
-        self.unreadmsg = []
-        self.livechats = []
+from Auth_cert.Auth_cert import load_data
 
 class server:
     def __init__(self, uname, pw):
         self.username = uname
         self.password = pw
-        # ligar à autoridade certificadora
-        self.auth_cert_socket = join_tls_socket('127.0.0.3', 12345)
-        self.auth_cert_publickey, self.privateKey, self.publicKey, self.ca = self.load_data_AC()
+        self.privateKey, self.publicKey, self.ca = load_data(self.username)
         self.masters_con = join_tcp_socket('127.0.0.1', 12345)
-        self.client_socket, self.cs_context = creat_tcp_socket('127.0.0.2', 12345, self.ca, self.privateKey)
-        self.uData = {}
+        self.client_socket, self.cs_context = creat_tls_socket('127.0.0.2', 12345, self.ca, self.privateKey)
         self.start()
         self.masters_con.close()
-
-    def load_data_AC(self):
-        msg = message('server', "", 'authcert', 2, 'ask4pk', 'auth_cert', "")
-        msg.send_none_serialized(self.auth_cert_socket)
-        rmsg = message()
-        data = rmsg.recieve(self.auth_cert_socket)
-        dict = eval(data)
-        print(dict)
-        #{'sk':private_key,'pk':public_key,'crt':certificate}
-        # msg para a autoriDADE certificadora a pedir os meus dados
-        dict = {username:self.username, password:self.password}
-        msg = message('server', "", 'authcert', 3, 'ask4data', str(dict), "")
-        msg.send
-        pass
 
     def start(self):
         if not os.path.exists("BD"): os.makedirs("BD")
@@ -76,11 +51,12 @@ class server:
                 
                 action = rmsg.action
                 if action == '0': # registrar
-                    if rmsg.senderID not in self.uData.keys():
-                        r = self.registeUser(rmsg.senderID, rmsg.content)
-                        self.login(rmsg.senderID, rmsg.content, r)  
-                    else: 
-                        self.login(rmsg.senderID, rmsg.content, "SUCESS") 
+                    r = "User já registado"
+                    if os.path.exists(f"BD/{rmsg.senderID}"):
+                        r = self.registeUser(rmsg.senderID, rmsg.content)  
+                    msg = message('server', self.ca, rmsg.senderID, "0", 'regist-response', r, "")
+                    data = msg.serialize(self.uData[rmsg.senderID].pk, self.privateKey)
+                    msg.send(c_con, data)
 
                 elif action == '1': # pedido de entrar num grupo
                     
@@ -116,7 +92,7 @@ class server:
                         arquivo.write("Nova linha!\n")
                     pass
 
-                elif action == '7': # receber pk de um user
+                elif action == '7': # login user
                     pass
         finally:
             c_con.close()
@@ -129,12 +105,14 @@ class server:
         data = msg.serialize(self.uData[nome].publicKey, self.privateKey)
         msg.send(self.uData[nome].con, data)
   
-    def registeUser(self, nome, pword):
-        # pedir a chave publica do nome à autoridade certificadora
-        msg = message('server', "", 'authcert', 2, 'ask4pk', nome, "")
-        msg.send_none_serialized(self.auth_cert_socket)
-        data = msg.recieve(self.auth_cert_socket)
-        dicionario = eval(data)
+    def registeUser(self, nome, msg_content):
+        # separar a password da publik key
+
+        # criar um User de linux
+
+        # criar um user e adicionar à bd
+        pass
+        """
         if dicionario['content'] != 'unknown user':
             # Enviar mensagem ao master
             mensagem = f"Criar novo user: {nome} - {pword}"
@@ -147,6 +125,7 @@ class server:
                 raise "ERROR: criar utilizador!"
         else:
             return 'ERROR: Unknown User!'
+            """
         
     def registeGruop(self, nome):
         message = f"Criar grupo: {nome}"

@@ -26,7 +26,7 @@ def encrypt(plaintext, receiverPK):
     aes_key = os.urandom(32)  # 32 bytes = 256 bits
     iv = os.urandom(16)  # 16 bytes = 128 bits
     # Criptografar os dados com a chave AES
-    cipher = Cipher(algorithms.AES(aes_key), modes.GCM(iv))
+    cipher = Cipher(algorithms.AES(aes_key), modes.GCM(iv), backend=default_backend())
     encryptor = cipher.encryptor()
     ciphertext = encryptor.update(plaintext) + encryptor.finalize()
     # Criptografar a chave AES com a chave pública RSA do destinatário

@@ -1,32 +1,12 @@
-from cryptography.hazmat.primitives.serialization import pkcs12
-from cryptography.hazmat.backends import default_backend
 from message import *
 from socketFuncs.socketFuncs import join_tls_socket
-import os, pwd
+from Auth_cert.Auth_cert import load_data, extract_public_key
+import os, pwd, sys
 
 path = 'BD/'
 
-def load_data(file, password=None):
-    with open(f"{file}.p12", "rb") as file:
-        p12_data = file.read()
-    private_key, certificate, _ = pkcs12.load_key_and_certificates(p12_data, password, backend=default_backend())
-    public_key = private_key.public_key()
-    return private_key, public_key, certificate
-
-def extract_public_key(cert):
-    """Retorna a chave publica do certificado. 
-    Entrada: caminho certificado, Saída: public_key"""
-    with open(cert, 'rb') as file:
-        file_data = file.read()
-        cert = x509.load_pem_x509_certificate(file_data)
-        public_key = cert.public_key()
-        public_key_out = public_key.public_bytes(encoding=serialization.Encoding.PEM, format=serialization.PublicFormat.SubjectPublicKeyInfo)
-        public_key_out = serialization.load_pem_public_key(public_key_out)
-    return public_key_out
-
 class cliente:
-    def __init__(self):
-        self.id, self.pw = self.login()
+    def __init__(self, ip, pw):
         self.switch_user()
         self.privateKey, self.publicKey, self.ca = load_data(self.id)
         self.server_socket = join_tls_socket("127.0.0.2", 12345)
@@ -37,14 +17,10 @@ class cliente:
         self.start()
         self.server_socket.close()
 
-    def login(self):
-        nome = input("Nome de usuário: ")
-        password = input("Password: ")
-        return nome, password
-    
     def start(self):
-        self.register()
-        self.sendpk()
+        print("ola\n")
+        #self.register()
+       # self.sendpk()
         #self.server_handle()
         self.menu()
     
@@ -243,7 +219,9 @@ class cliente:
             self.socket_recieve_msg(socket)
         
 
-
-
-
-cliente()
+if __name__ == "__main__":
+    # Verificar se há argumentos passados na linha de comando
+    if len(sys.argv) != 3:
+        print("Uso: python3 Cliente.py arg1 arg2")
+        sys.exit(1)
+    cliente(sys.argv[1], sys.argv[2])

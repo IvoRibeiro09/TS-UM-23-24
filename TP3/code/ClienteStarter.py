@@ -1,26 +1,8 @@
-from cryptography.hazmat.primitives.serialization import pkcs12
-from cryptography.hazmat.backends import default_backend
 from message import *
 from socketFuncs.socketFuncs import join_tls_socket
 import os
+from Auth_cert.Auth_cert import load_data, extract_public_key
 
-def load_data(file, password=None):
-    with open(f"{file}.p12", "rb") as file:
-        p12_data = file.read()
-    private_key, certificate, _ = pkcs12.load_key_and_certificates(p12_data, password, backend=default_backend())
-    public_key = private_key.public_key()
-    return private_key, public_key, certificate
-
-def extract_public_key(cert):
-    """Retorna a chave publica do certificado. 
-    Entrada: caminho certificado, Saída: public_key"""
-    with open(cert, 'rb') as file:
-        file_data = file.read()
-        cert = x509.load_pem_x509_certificate(file_data)
-        public_key = cert.public_key()
-        public_key_out = public_key.public_bytes(encoding=serialization.Encoding.PEM, format=serialization.PublicFormat.SubjectPublicKeyInfo)
-        public_key_out = serialization.load_pem_public_key(public_key_out)
-    return public_key_out
 
 class cliente:
     def __init__(self):
@@ -38,28 +20,43 @@ class cliente:
         return nome, password
     
     def start(self):
-        self.register()
-        self.sendpk()
+        option = int(input("\n1- Register!\n2- Login!\n"))
+        while True:
+            if option == 1:
+                self.register()
+                return
+            elif option == 2:
+                self.sendLogin()
+                return 
     
     def register(self):
         # encryptar e assinar o conteudo e mandar a assinatura no message
+        msg = message(self.id, self.ca, 'server', "0", "regist", self.publicKey, "")
+        msg.serialize_public_key()
+        data = mkpair(self.pw.encode('utf-8'), msg.content.encode('utf-8'))
+        msg.content = data.decode('utf-8')
+        cypher = msg.serialize(self.pks['server'], self.privateKey)
+        msg.send(self.server_socket, cypher)
+        rmsg = message()
+        rmsg.recieve(self.server_socket)
+        if rmsg.content == "SUCESS":
+            print("User Registado com sucesso!")
+        else:
+            raise ValueError(rmsg.content)
+    
+    def sendLogin(self):
         msg = message(self.id, self.ca, 'server', "0", "login", self.pw, "")
         msg.serialize(self.pks['server'], self.privateKey)
         msg.send(self.server_socket)
         rmsg = message()
         rmsg.recieve(self.server_socket)
         if rmsg.content == "SUCESS":
-            print("Login efetuado!")
+            print("Login efetuado com sucesso!")
         else:
             raise ValueError(rmsg.content)
-    
-    def sendpk(self):
-        msg = message(self.id, self.ca, 'server', "7", "sendpk", self.publicKey, "")
-        msg.serialize(self.pks['server'], self.privateKey)
-        msg.send(self.server_socket)
 
     def switch_user(self):
         # Definir o UID do usuário do sistema Linux para outro usuário válido
-        os.system(f"sudo -u {self.id} python3 Cliente.py")
+        os.system(f"sudo -u {self.id} python3 Cliente.py {self.id} {self.pw}")
     
 cliente()
