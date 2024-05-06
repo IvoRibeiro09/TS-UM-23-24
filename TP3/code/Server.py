@@ -1,3 +1,4 @@
+import csv
 import datetime
 import os
 import threading
@@ -99,9 +100,10 @@ class server:
 
                 elif action == '3' : # envio de mensagem 
                     # guradar a mensagem numa pasta
-                    self.guardar_mensagem(rmsg)
+                    valido = self.guardar_mensagem(rmsg)
                     # atualizar o ficheiro de logs do utilizador para o qual enviamos
-                    pass
+                    if valido>0:
+                        self.user_logs(rmsg.reciverID,rmsg,valido)
                 elif action == '4': # pedido de livechat
                     if rmsg.content in self.uCons.keys() and self.uData[rmsg.content].con != None:
                         msg = message('server', self.ca, rmsg.content, '5', 'livechat', rmsg.senderID, "")
@@ -158,8 +160,7 @@ class server:
         write_pk_file(nome, rmsg.content)
         write_pw_file(nome, password)
         return data
-        
-        
+            
     def registeGruop(self, nome):
         message = f"Criar grupo: {nome}"
         self.masters_con.sendall(message.encode())
@@ -185,6 +186,17 @@ class server:
 
             with open(f"BD/{mensagem_rec.reciverID}/{number}.bin", "wb+") as file:
                 file.write(cypher)
+            return number
+        else:
+            return-1
+
+    def user_logs(self,utilizador,msg,number):
+        if os.path.exists(f"BD/{utilizador}"):
+            with open("BD/{utilizador}/log.csv", mode='a+', newline='') as arquivo_csv:
+                escritor_csv = csv.writer(arquivo_csv)
+                linha = [number,msg.senderID,str(datetime.datetime.now()),msg.subject,"FALSE"]
+                escritor_csv.writerow(linha)
+            return 1
         else:
             return-1
 
