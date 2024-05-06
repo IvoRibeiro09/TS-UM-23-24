@@ -7,7 +7,7 @@ import cryptography.x509.oid as oid
 from message import *
 from Auth_cert.Auth_cert import load_data
 
-serverPath = "BD/server/"
+serverPath = "DataBase/server/"
 
 def get_user_pk(nome):
     if not os.path.exists(f"{serverPath}pk-{nome}.pem"):
@@ -15,11 +15,7 @@ def get_user_pk(nome):
     else:
         with open(f"{serverPath}pk-{nome}.pem", "rb") as file:
             file_data = file.read()
-        cert = x509.load_pem_x509_certificate(file_data, backend=default_backend())
-        public_key = cert.public_key()
-        public_key_out = public_key.public_bytes(encoding=serialization.Encoding.PEM, format=serialization.PublicFormat.SubjectPublicKeyInfo)
-        public_key_out = serialization.load_pem_public_key(public_key_out, backend=default_backend())
-        return public_key_out
+            return serialization.load_pem_public_key(file_data, backend=default_backend())
     
 def write_pk_file(nome, content):
     with open(f"{serverPath}pk-{nome}.pem", "wb") as file:
@@ -47,11 +43,6 @@ class server:
         self.masters_con.close()
 
     def start(self):
-        if not os.path.exists("BD"): os.makedirs("BD")
-        if not os.path.exists("BD/serverBD"): os.makedirs("BD/serverBD")
-        self.registeGruop('serverBD')
-        self.setUserToGroup(self.username,'serverBD')
-        self.setGroupPermitions('serverBD','0o600', 'BD/serverBD')
         try:
             self.client_socket.listen()
             print("Servidor aberto!!")
@@ -72,6 +63,7 @@ class server:
             while True:
                 rmsg = message()
                 data = rmsg.recieve(c_con)
+                if len(data) == 0: break
                 if rmsg.deserialize(data, self.privateKey) < 0:
                     raise ValueError("MSG SERVICE: verification error!")
                 
@@ -149,7 +141,7 @@ class server:
         # separar a password da publik key
         password, pk = unpair(rmsg.content.encode('utf-8'))
         rmsg.content = pk.decode('utf-8')
-        rmsg.deserialize_public_key()
+        pk = rmsg.deserialize_public_key()
         # criar um User de linux
         # Enviar mensagem ao master
         mensagem = f"Criar novo user: {nome} - {password.decode('utf-8')}"
@@ -160,7 +152,7 @@ class server:
         else:
             return data
         # criar um fichiero com a password e outro com a pk
-        write_pk_file(nome, rmsg.content)
+        write_pk_file(nome, pk)
         write_pw_file(nome, password)
         return data
             
@@ -172,9 +164,29 @@ class server:
             print("LOG- Grupo {} registado no dia {}!".format(nome, str(datetime.datetime.now())))
         return data
     
+    def setUserToGroup(self, nome, group):
+        mensagem = f"Adicionar ao grupo: {nome} - {group}"
+        self.masters_con.sendall(mensagem.encode())
+        data = self.masters_con.recv(1024).decode('utf-8')
+        if data == "SUCESS":
+            print("LOG- Cliente {} adicionado ao grupo {} registado no dia {}!".format(nome, group, str(datetime.datetime.now())))
+        return data
+    
     def setGroupPermitions(self, nome, permissoes, direc):
-        message = f"set permissoes: {nome},{permissoes},{direc}"
+        message = f"Set permissoes grupo: {nome},{permissoes},{direc}"
         self.masters_con.sendall(message.encode())
+        data = self.masters_con.recv(1024).decode('utf-8')
+        if data == "SUCESS":
+            print("LOG- Permissoes {} adicionadas à diretoria {} para o grupo {} registado no dia {}!".format(permissoes, direc, nome, str(datetime.datetime.now())))
+        return data
+    
+    def setUserPermitions(self, nome, permissoes, direc):
+        message = f"Set permissoes user: {nome},{permissoes},{direc}"
+        self.masters_con.sendall(message.encode())
+        data = self.masters_con.recv(1024).decode('utf-8')
+        if data == "SUCESS":
+            print("LOG- Permissoes {} adicionadas à diretoria {} para o grupo {} registado no dia {}!".format(permissoes, direc, nome, str(datetime.datetime.now())))
+        return data
 
     def guardar_mensagem(self,mensagem_rec):
         mensagem_env = message(mensagem_rec.senderID, self.certificate, mensagem_rec.reciverID, '3', mensagem_rec.subject, mensagem_rec.content, mensagem_rec.contentsign)

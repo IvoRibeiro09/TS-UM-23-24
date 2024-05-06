@@ -9,6 +9,8 @@ class MasterUser:
         self.server_socket.close()
 
     def start(self):
+        if not os.path.exists("DataBase"): os.makedirs("DataBase")
+        self.criarUser('server', 'root')
         self.server_socket.listen(1)            
         print("Aguardando conexões...")
         try:
@@ -16,20 +18,33 @@ class MasterUser:
                 # Aceitar conexão
                 client_socket, client_address = self.server_socket.accept()
                 # Receber mensagem do cliente
-                message = client_socket.recv(1024).decode()
-                print(f"Mensagem recebida: {message}")
-                # Criar um novo usuário usando o comando sudo
-                if "Criar novo user" in message:
-                    data = message.split(": ")
-                    udata = data[1].split(" - ")
-                    r = self.criarUser(udata[0], udata[1])
-                    client_socket.sendall(r.encode('utf-8'))
-                elif "Criar grupo:" in message:
-                    data = message.split(": ")
-                    r = self.criarGrupo(data[1])
-                    client_socket.sendall(r.encode('utf-8'))
-                # Fechar conexões
-                client_socket.close()
+                while client_socket:
+                    message = client_socket.recv(1024).decode()
+                    if len(message) == 0: break
+                    print(f"Mensagem recebida: {message}")
+                    # Criar um novo usuário usando o comando sudo
+                    if "Criar novo user" in message:
+                        data = message.split(": ")
+                        udata = data[1].split(" - ")
+                        r = self.criarUser(udata[0], udata[1])
+                        client_socket.sendall(r.encode('utf-8'))
+                    elif "Criar grupo:" in message:
+                        data = message.split(": ")
+                        r = self.criarGrupo(data[1])
+                        client_socket.sendall(r.encode('utf-8'))
+                    elif "Adicionar ao grupo:" in message:
+                        data = message.split(": ")
+                        udata = data[1].split(" - ")
+                        r = self.adicionarUserGrupo(udata[1], udata[0])
+                        client_socket.sendall(r.encode('utf-8'))
+                    elif "Set permissoes grupo:" in message:
+                        data = message.split(": ")
+                        udata = data[1].split(",")
+                        r = self.definirPermissoesGrupo(udata[0], udata[2], udata[1])
+                    elif "Set permissoes user:" in message:
+                        data = message.split(": ")
+                        udata = data[1].split(",")
+                        r = self.definirPermissoesUser(udata[0], udata[2], udata[1])
         except KeyboardInterrupt:
             self.server_socket.close()
             print("Master encerrado.")
@@ -39,7 +54,11 @@ class MasterUser:
             if os.system(f"sudo useradd -m {nome}") < 0:
                 return "Utilizador de sistema já existente"
             os.system(f"echo '{nome}:{pw}' | sudo chpasswd")
+            if not os.path.exists(f"DataBase/{nome}"): os.makedirs(f"DataBase/{nome}")
             print(f"Usuário {nome} criado com sucesso!")
+            self.criarGrupo(nome)
+            self.adicionarUserGrupo(nome,nome)
+            self.definirPermissoesGrupo(nome, f"DataBase/{nome}", '070')
             return "SUCESS"
         except Exception as e:
             print(f"Erro ao criar usuário: {e}")
@@ -56,16 +75,30 @@ class MasterUser:
     # Função para adicionar usuário a um grupo
     def adicionarUserGrupo(self, usuario, grupo):
         try:
-            os.system(f"sudo usermod -aG {grupo} {usuario}")
+            if os.system(f"sudo usermod -aG {grupo} {usuario}") < 0:
+                return f"Utilizador {usuario} ja pertence ao grupo {grupo}"
             print(f"Usuário {usuario} adicionado ao grupo {grupo}")
+            return "SUCESS"
         except Exception as e:
             print(f"Erro ao adicionar usuário ao grupo: {e}")
     
-    def definirPermissoes(self, grupo, diretoria, permissoes):
+    def definirPermissoesGrupo(self, grupo, diretoria, permissoes):
         try:
-            os.system(f"sudo chown {grupo} {diretoria}")
-            os.system(f"sudo chmod {permissoes} {diretoria}")
+            if os.system(f"sudo chown :{grupo} {diretoria}") < 0:
+                raise ValueError(" erro de vincar grupo a diretoria")
+            if os.system(f"sudo chmod {permissoes} {diretoria}") < 0:
+                raise ValueError("erro ao definir permissoes")
             print(f"Permissões {permissoes} da diretoria: {diretoria} definidas para o grupo {grupo} com sucesso!")
+            return "SUCESS"
+        except Exception as e:
+            print(f"Erro ao definir as permissões da diretoria: {e}")
+
+    def definirPermissoesUser(self, user, diretoria, permissoes):
+        try:
+            os.system(f"sudo chown {user}:{user} {diretoria}")
+            os.system(f"sudo chmod {permissoes} {diretoria}")
+            print(f"Permissões {permissoes} da diretoria: {diretoria} definidas para o user {user} com sucesso!")
+            return "SUCESS"
         except Exception as e:
             print(f"Erro ao definir as permissões da diretoria: {e}")
 

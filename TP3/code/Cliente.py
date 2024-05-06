@@ -6,9 +6,10 @@ import os, pwd, sys
 path = 'BD/'
 
 class cliente:
-    def __init__(self, ip, pw):
-        self.switch_user()
-        self.privateKey, self.publicKey, self.ca = load_data(self.id)
+    def __init__(self, name, pw):
+        self.username = name
+        self.password = pw
+        self.privateKey, self.publicKey, self.ca = load_data(self.username)
         self.server_socket = join_tls_socket("127.0.0.2", 12345)
         self.pks = {"server": extract_public_key('SERVER.crt')}
         self.unreadMSG = 0
@@ -20,31 +21,9 @@ class cliente:
     def start(self):
         print("ola\n")
         #self.register()
-       # self.sendpk()
+        #self.sendpk()
         #self.server_handle()
         self.menu()
-    
-    def register(self):
-        # encryptar e assinar o conteudo e mandar a assinatura no message
-        msg = message(self.id, self.ca, 'server', "0", "login", self.pw, "")
-        msg.serialize(self.pks['server'], self.privateKey)
-        msg.send(self.server_socket)
-        rmsg = message()
-        rmsg.recieve(self.server_socket)
-        if rmsg.content == "SUCESS":
-            print("Login efetuado!")
-        else:
-            raise ValueError(rmsg.content)
-    
-    def sendpk(self):
-        msg = message(self.id, self.ca, 'server', "7", "sendpk", self.publicKey, "")
-        msg.serialize(self.pks['server'], self.privateKey)
-        msg.send(self.server_socket)
-
-    def switch_user(self):
-        # Definir o UID do usuário do sistema Linux para outro usuário válido
-        new_user = "server"
-        os.setuid(pwd.getpwnam(new_user).pw_uid)
         
     def updateMenu(self):
         if self.unreadMSG == 0 and self.liveMsg == 0:
@@ -53,18 +32,9 @@ class cliente:
             self.popup = " {} New Message! ".format(self.unreadMSG)
         elif self.unreadMSG > 0 and self.liveMsg > 0:
             self.popup = " {} New Message! AND {} Live Chat! ".format(self.unreadMSG, self.liveMsg)
-        self.help = """{}\n1- Check MAilBox!\n2- Check Live Chat!\n3- Send Message!\n4- Start Live Chat!\n9- Close app!{}\n""".format((12*"#")+self.popup+(12*"#"), "#"*(24+len(self.popup)))
+        self.help = """{}\n1- Check MAilBox!\n2- Check Live Chat!\n3- Send Message!\n
+4- Start Live Chat!\n9- Close app!\n{}\n""".format((12*"#")+self.popup+(12*"#"), "#"*(24+len(self.popup)))
         
-    """
-    def register(self):
-        # peço a chave publica do server
-        # envio pedido de registro no server
-        public_key_server = self.pks['server']
-        messagem = message(self.id, self.ca, "server", "0", "register", self.pk,"")
-        messagem.serialize_public_key()
-        cypher = messagem.serialize(public_key_server, self.sk)
-        self.socket_send_msg(cypher)
-    """
     def server_handle(self):
         while self.status_socket:
             data = self.socket_recieve_msg(self.status_socket)
@@ -203,20 +173,6 @@ class cliente:
             print("Remetente (Sender): {}\nAssunto (Subject): {}\nMensagem (Content): {}".format(rmsg.senderID, rmsg.subject, rmsg.content))
             print("#####################################################################\n")
         return 0
-    
-    def socket_send_msg(self, msg):
-        size = len(msg)
-        tamanho_codificado = size.to_bytes(4, byteorder='big')
-        mensagem_com_tamanho = tamanho_codificado + msg
-        self.server_socket.sendall(mensagem_com_tamanho)
-
-    def socket_recieve_msg(self, socket):
-        size = socket.recv(4)
-        try:
-            tamanho_mensagem = int.from_bytes(size, byteorder='big')
-            return socket.recv(tamanho_mensagem)
-        except ValueError:
-            self.socket_recieve_msg(socket)
         
 
 if __name__ == "__main__":

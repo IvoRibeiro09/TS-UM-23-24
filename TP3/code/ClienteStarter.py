@@ -38,11 +38,13 @@ class cliente:
         cypher = msg.serialize(self.pks['server'], self.privateKey)
         msg.send(self.server_socket, cypher)
         rmsg = message()
-        rmsg.recieve(self.server_socket)
+        cypher = rmsg.recieve(self.server_socket)
+        rmsg.deserialize(cypher, self.privateKey)
         if rmsg.content == "SUCESS":
             print("User Registado com sucesso!")
         else:
-            raise ValueError(rmsg.content)
+            print(f"{rmsg.content}")
+            raise ValueError(f"{rmsg.content}")
     
     def sendLogin(self):
         msg = message(self.id, self.ca, 'server', "7", "login", self.pw, "")
