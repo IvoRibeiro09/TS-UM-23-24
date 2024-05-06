@@ -175,7 +175,7 @@ class server:
     def guardar_mensagem(self,mensagem_rec):
         mensagem_env = message(mensagem_rec.senderID, self.certificate, mensagem_rec.reciverID, '3', mensagem_rec.subject, mensagem_rec.content, mensagem_rec.contentsign)
             
-        chave_receiber = None
+        chave_receiber = get_user_pk(mensagem_rec.reciverID)
         cypher = mensagem_env.serialize(chave_receiber, self.privateKey)
         
         if os.path.exists(f"BD/{mensagem_rec.reciverID}"):
