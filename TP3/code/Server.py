@@ -97,7 +97,11 @@ class server:
                     
                     print("LOG- Cliente {} enviou uma mensagem no dia {}!".format(uid,str(datetime.datetime.now())))          
                 elif action == '2': # criar grupo
-                    pass
+                    valid = rmsg.decrypt_content(self.privateKey,get_user_pk(rmsg.senderID))
+                    if valid > 0:
+                        data = self.registeGruop(rmsg.content)
+                    if valid <0 or data != "SUCESS":
+                        print(f"LOG- Falha ao criar Grupo {rmsg.content}")
                 elif action == '3' : # envio de mensagem 
                     # guradar a mensagem numa pasta
                     valido = self.guardar_mensagem(rmsg)
@@ -138,16 +142,10 @@ class server:
                     data = msg.serialize(get_user_pk(rmsg.senderID), self.privateKey)
                     msg.send(c_con, data)
                 elif action == '8': # por as mensagens como lidas
-                    print(0)
-                    pk = get_user_pk(rmsg.senderID)
-                    print(type(rmsg))
-                    valid = rmsg.decrypt_content(self.privateKey,pk)
-                    print(2)
-                    print(valid)
+                    valid = rmsg.decrypt_content(self.privateKey,get_user_pk(rmsg.senderID))
                     if valid == -1:
                         print(f"LOG- Erro ao decifrar content da mensagem do utlizador {rmsg.senderID}.")
                     else:
-                        print(1)
                         num = eval(rmsg.content)
                         with open(f"{path}{rmsg.senderID}/log.csv", mode='r', newline='') as arquivo_csv:
                             leitor_csv = csv.reader(arquivo_csv)

@@ -33,7 +33,7 @@ class cliente:
         elif self.unreadMSG > 0 and self.liveMsg > 0:
             self.popup = " {} New Message! AND {} Live Chat! ".format(self.unreadMSG, self.liveMsg)
         self.help = """{}\n1- Check MAilBox!\n2- Check Live Chat!\n3- Send Message!
-4- Start Live Chat!\n9- Close app!\n{}\n""".format((12*"#")+self.popup+(12*"#"), "#"*(24+len(self.popup)))
+4- Start Live Chat!\n5- Create Group!\n9- Close app!\n{}\n""".format((12*"#")+self.popup+(12*"#"), "#"*(24+len(self.popup)))
 
     def menu(self):
         os.system('clear')
@@ -48,6 +48,8 @@ class cliente:
                 self.displayLiveChat()
             elif option == 4:
                 self.startLiveChat()
+            elif option == 5:
+                self.creat_group()
             self.updateMenu()
             option = int(input(self.help))
             os.system('clear')
@@ -163,7 +165,13 @@ class cliente:
         pass
         """
 
-    
+    def creat_group(self):
+        name = input("Name of the group:")
+        msg = message(self.username, self.ca, 'server','2', '', name, "")
+        msg.encrypt_content(self.pks['server'], self.privateKey)
+        cypher = msg.serialize(self.pks['server'], self.privateKey)
+        msg.send(self.server_socket,cypher)
+
     def ask_queue(self, type):
         public_key_server = self.pks['server']
         messagem = message(self.id, self.ca, "server", type, "", "", "")
