@@ -105,10 +105,11 @@ class cliente:
                 if rmsg.deserialize(file_data, self.privateKey) < 0:
                     raise ValueError("MSG SERVICE: verification error!")
                 rmsg.decrypt_content(self.privateKey,self.pks[msg[1]])
+                num.append(msg[0])
                 print(f"Message number:{msg[0]}\nSubject: {rmsg.subject}\nContent: {rmsg.content}\n")
-            msg = message(self.username, self.ca, 'server', '', num, "")
-            msg.serialize(get_user_pk[data[1]], self.privateKey)
-            msg.send(self.server_socket)
+            msg = message(self.username, self.ca, 'server','8', '', str(num), "")
+            cypher = msg.serialize(self.pks['server'], self.privateKey)
+            msg.send(self.server_socket,cypher)
         # dar display das mensagens la descritas com não lidas
         # desincriptar as ultimas 20 mensgens em caso de erro retornar erro no display
 

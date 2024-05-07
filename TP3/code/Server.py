@@ -142,6 +142,24 @@ class server:
                     msg = message('server', self.ca, rmsg.senderID, "7", 'login-response', r, "")
                     data = msg.serialize(get_user_pk(rmsg.senderID), self.privateKey)
                     msg.send(c_con, data)
+                elif action == '8': # por as mensagens como lidas
+                    num = eval(rmsg.content)
+                    with open(f"{path}{rmsg.senderID}/log.csv", mode='r', newline='') as arquivo_csv:
+                        leitor_csv = csv.reader(arquivo_csv)
+                        linhas = list(leitor_csv)
+
+                    for linha in linhas:
+                        print(linha[0])
+                        if linha[0] in num:
+                            linha[4]= "TRUE"
+                            existe = True
+                            print(linha)
+
+                    # Escrever o conteúdo modificado de volta para o arquivo
+                    with open(f"{path}{rmsg.senderID}/log.csv", mode='w', newline='') as arquivo_csv:
+                        escritor_csv = csv.writer(arquivo_csv)
+                        escritor_csv.writerows(linhas)
+
         except:
             print(f"Conexão fichada com {c_add}")
         finally:
