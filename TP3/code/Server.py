@@ -95,11 +95,9 @@ class server:
 
                 elif action == '1': # pedido de entrar num grupo
                     
-                    print("LOG- Cliente {} enviou uma mensagem no dia {}!".format(uid,str(datetime.datetime.now())))
-                
+                    print("LOG- Cliente {} enviou uma mensagem no dia {}!".format(uid,str(datetime.datetime.now())))          
                 elif action == '2': # criar grupo
                     pass
-
                 elif action == '3' : # envio de mensagem 
                     # guradar a mensagem numa pasta
                     valido = self.guardar_mensagem(rmsg)
@@ -120,9 +118,7 @@ class server:
                         data = rmsg.content.split('-')
                         msg = message('server', self.ca, data[1], '4', 'livechat', "pedido-"+{rmsg.senderID}, "")
                         msg.serialize(get_user_pk[data[1]], self.privateKey)
-                        msg.send(self.uData[data[1]])
-
-                    
+                        msg.send(self.uData[data[1]])                  
                 elif action == '5': # resposta a pedido de livechat
                     if rmsg.content == 'Accept':
                         # abrir um ficehiro no live msg com permissoes de leitura dos dois clientes
@@ -136,31 +132,41 @@ class server:
                         # Escrever no arquivo o conteudo com o nome dele antes cli1 - 
                         arquivo.write("Nova linha!\n")
                     pass
-
                 elif action == '7': # login user
                     r = self.login(rmsg.senderID, rmsg.content)
                     msg = message('server', self.ca, rmsg.senderID, "7", 'login-response', r, "")
                     data = msg.serialize(get_user_pk(rmsg.senderID), self.privateKey)
                     msg.send(c_con, data)
                 elif action == '8': # por as mensagens como lidas
-                    num = eval(rmsg.content)
-                    with open(f"{path}{rmsg.senderID}/log.csv", mode='r', newline='') as arquivo_csv:
-                        leitor_csv = csv.reader(arquivo_csv)
-                        linhas = list(leitor_csv)
+                    print(0)
+                    pk = get_user_pk(rmsg.senderID)
+                    print(type(rmsg))
+                    valid = rmsg.decrypt_content(self.privateKey,pk)
+                    print(2)
+                    print(valid)
+                    if valid == -1:
+                        print(f"LOG- Erro ao decifrar content da mensagem do utlizador {rmsg.senderID}.")
+                    else:
+                        print(1)
+                        num = eval(rmsg.content)
+                        with open(f"{path}{rmsg.senderID}/log.csv", mode='r', newline='') as arquivo_csv:
+                            leitor_csv = csv.reader(arquivo_csv)
+                            linhas = list(leitor_csv)
 
-                    for linha in linhas:
-                        print(linha[0])
-                        if linha[0] in num:
-                            linha[4]= "TRUE"
-                            existe = True
-                            print(linha)
+                        for linha in linhas:
+                            if linha[0] in num:
+                                linha[4]= "TRUE"
+                                existe = True
 
-                    # Escrever o conteúdo modificado de volta para o arquivo
-                    with open(f"{path}{rmsg.senderID}/log.csv", mode='w', newline='') as arquivo_csv:
-                        escritor_csv = csv.writer(arquivo_csv)
-                        escritor_csv.writerows(linhas)
+                        # Escrever o conteúdo modificado de volta para o arquivo
+                        with open(f"{path}{rmsg.senderID}/log.csv", mode='w', newline='') as arquivo_csv:
+                            escritor_csv = csv.writer(arquivo_csv)
+                            escritor_csv.writerows(linhas)
+                        
+                        print(f"LOG- Atualizaçao da leitura de mensagens do utlizador {rmsg.senderID}.")
 
-        except:
+        except Exception as e:
+            print(e)
             print(f"Conexão fichada com {c_add}")
         finally:
             c_con.close()

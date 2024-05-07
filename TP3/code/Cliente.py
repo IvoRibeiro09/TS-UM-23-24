@@ -108,6 +108,7 @@ class cliente:
                 num.append(msg[0])
                 print(f"Message number:{msg[0]}\nSubject: {rmsg.subject}\nContent: {rmsg.content}\n")
             msg = message(self.username, self.ca, 'server','8', '', str(num), "")
+            msg.encrypt_content(self.pks['server'], self.privateKey)
             cypher = msg.serialize(self.pks['server'], self.privateKey)
             msg.send(self.server_socket,cypher)
         # dar display das mensagens la descritas com não lidas
