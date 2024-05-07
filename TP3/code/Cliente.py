@@ -1,7 +1,7 @@
 from message import *
-from socketFuncs.socketFuncs import join_tls_socket, join_tcp_socket
+from socketFuncs.socketFuncs import join_tls_socket
 from Auth_cert.Auth_cert import load_data, extract_public_key
-import os, pwd, sys, csv
+import os, sys, csv
 
 path = 'DataBase/'
 
@@ -44,15 +44,17 @@ class cliente:
                 self.send_message()
             elif option == 1:
                 self.displayMailBox()
-            elif option == 3:
+            elif option == 2:
                 self.displayLiveChat()
             elif option == 4:
                 self.startLiveChat()
+            os.system('clear')
+            self.updateMenu()
             option = int(input(self.help))
      
     def send_message(self):
         os.system('clear')
-        print("\n#####################################################################")
+        print("#####################################################################")
         rid = input("Destinatário (Reciever): ")
         subject = input("Assunto (Subject): ")
         content = input("Mensagem (Content): ")
@@ -98,10 +100,45 @@ class cliente:
         # desincriptar as ultimas 20 mensgens em caso de erro retornar erro no display
 
     def displayLiveChat(self):
+        texto = "\n"
+        msg = message(self.username, self.ca, 'server', '4', 'live-chat', "start","")
+        serialized_msg = msg.serialize(self.pks['server'], self.privateKey)
+        msg.send(self.server_socket, serialized_msg)
+        while '!exit' not in texto:
+            os.system('clear')
+            print("Live Chat Mode!")
+            rmsg = message()
+            cypher = rmsg.recieve(self.server_socket)
+            rmsg.deserialize(cypher, self.privateKey)
+            if "Nenhum user disponivel" in rmsg.content:
+                print(rmsg.content)
+                print("Press ENTER to refresh!")
+            elif "pedido" in rmsg.content:
+                print(rmsg.content)
+            elif "aceite" in rmsg.content:
+                self.startLiveChat(rmsg.content)
+            texto = input(": ")
         # perguntar quem esta a pedir live chat e aceitar ou rejeitar
-        pass
 
-    def startLiveChat(self):
+    def startLiveChat(self, lvchat):
+        try: 
+            texto = input("\n: ")
+            while texto != 'exit':
+                with open(f"{path}{lvchat}/{lvchat}.txt", newline='') as arquivo_csv:
+                    leitor_csv = csv.reader(arquivo_csv)
+                    for linha in leitor_csv:
+                        data = linha.split('- ')
+                        if data[0] == self.username:
+                            print("{:<30}{}".format("", data[1]))
+                        else:
+                            print("{:<30}{}".format(data[1], ""))
+                msg = message(self.username, self.ca, lvchat, '6', 'live-chat', texto,"")
+                serialized_msg = msg.serialize(self.pks['server'], self.privateKey)
+                msg.send(self.server_socket, serialized_msg)
+                texto = input("\n: ")
+        finally:
+            return 
+        """
         # começar o conversar com prints do lado direito e esquerdo
         left_text = "Texto alinhado à esquerda"
         right_text = "Texto alinhado à direita"
@@ -109,6 +146,7 @@ class cliente:
         # Usando formatação de string
         print("{:<30}{}".format(left_text, right_text))
         pass
+        """
 
     
     def ask_queue(self, type):

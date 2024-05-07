@@ -43,7 +43,8 @@ class server:
         self.privateKey, self.publicKey, self.ca = load_data(self.username)
         self.masters_con = join_tcp_socket('127.0.0.1', 12345)
         self.client_socket, self.cs_context = creat_tls_socket('127.0.0.2', 12345, self.ca, self.privateKey)
-        self.uCons = {}
+        self.uData = {}
+        self.livechats = {}
         self.start()
         self.masters_con.close()
 
@@ -109,13 +110,19 @@ class server:
                     else:
                         print(f"LOG- Erro ao guardar mensagem do utlizador {rmsg.senderID} na pasta do utilizador {rmsg.reciverID}.")
                 elif action == '4': # pedido de livechat
-                    if rmsg.content in self.uCons.keys() and self.uData[rmsg.content].con != None:
-                        msg = message('server', self.ca, rmsg.content, '5', 'livechat', rmsg.senderID, "")
-                        msg.serialize(self.uData[rmsg.content].publicKey, self.privateKey)
-                        msg.send(self.uData[rmsg.content].c_con)
-                    else: 
-                        #error response
-                        pass
+                    if 'start' in rmsg.content:
+                        self.livechats[rmsg.senderID] = 1
+                    elif 'aceite' in rmsg.content:
+                        data = rmsg.content.split('-')
+                        self.livechats[rmsg.senderID] = 2
+                        self.livechats[data[1]] = 2
+                    elif 'pedido' in rmsg.content:
+                        data = rmsg.content.split('-')
+                        msg = message('server', self.ca, data[1], '4', 'livechat', "pedido-"+{rmsg.senderID}, "")
+                        msg.serialize(get_user_pk[data[1]], self.privateKey)
+                        msg.send(self.uData[data[1]])
+
+                    
                 elif action == '5': # resposta a pedido de livechat
                     if rmsg.content == 'Accept':
                         # abrir um ficehiro no live msg com permissoes de leitura dos dois clientes
