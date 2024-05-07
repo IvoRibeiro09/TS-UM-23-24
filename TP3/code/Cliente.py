@@ -48,9 +48,9 @@ class cliente:
                 self.displayLiveChat()
             elif option == 4:
                 self.startLiveChat()
-            os.system('clear')
             self.updateMenu()
             option = int(input(self.help))
+            os.system('clear')
      
     def send_message(self):
         os.system('clear')
@@ -84,18 +84,31 @@ class cliente:
         print('Mensagem enviada!(Message sent!)')  
 
     def displayMailBox(self):
+        os.system('clear')
         # percorrer a diretoria com o meu nome
         # ler o ficehiro csv 
-        new = 0
+        nao_lidas = []
         with open(f"{path}{self.username}/log.csv", newline='') as arquivo_csv:
             leitor_csv = csv.reader(arquivo_csv)
             for linha in leitor_csv:
-                print(linha)
-                if "nLida" in linha:
-                    new+=1
-        
-        if new == 0:
+                if linha[4]=='FALSE':
+                    nao_lidas.append((linha[0],linha[1]))
+
+        if len(nao_lidas) == 0:
             print("Não tem mensagens novas!")
+        else:
+            num=[]
+            for msg in nao_lidas:
+                with open(f"{path}{self.username}/{msg[0]}.bin", "rb") as file:
+                    file_data = file.read()
+                rmsg = message()
+                if rmsg.deserialize(file_data, self.privateKey) < 0:
+                    raise ValueError("MSG SERVICE: verification error!")
+                rmsg.decrypt_content(self.privateKey,self.pks[msg[1]])
+                print(f"Message number:{msg[0]}\nSubject: {rmsg.subject}\nContent: {rmsg.content}\n")
+            msg = message(self.username, self.ca, 'server', '', num, "")
+            msg.serialize(get_user_pk[data[1]], self.privateKey)
+            msg.send(self.server_socket)
         # dar display das mensagens la descritas com não lidas
         # desincriptar as ultimas 20 mensgens em caso de erro retornar erro no display
 

@@ -43,7 +43,7 @@ class server:
         self.privateKey, self.publicKey, self.ca = load_data(self.username)
         self.masters_con = join_tcp_socket('127.0.0.1', 12345)
         self.client_socket, self.cs_context = creat_tls_socket('127.0.0.2', 12345, self.ca, self.privateKey)
-        self.uData = {}
+        self.uCons = {}
         self.livechats = {}
         self.start()
         self.masters_con.close()
