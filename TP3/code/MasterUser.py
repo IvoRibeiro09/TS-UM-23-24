@@ -9,8 +9,9 @@ class MasterUser:
         self.server_socket.close()
 
     def start(self):
-        if not os.path.exists("DataBase"): os.makedirs("DataBase")
-        self.criarUser('server', 'root')
+        self.criarGrupo('code')
+        diretorio_atual = os.getcwd()
+        self.definirPermissoesGrupo('code',diretorio_atual, 777)
         self.server_socket.listen(1)            
         print("Aguardando conexões...")
         try:
@@ -41,24 +42,22 @@ class MasterUser:
                         data = message.split(": ")
                         udata = data[1].split(",")
                         r = self.definirPermissoesGrupo(udata[0], udata[2], udata[1])
+                        client_socket.sendall(r.encode('utf-8'))
                     elif "Set permissoes user:" in message:
                         data = message.split(": ")
                         udata = data[1].split(",")
                         r = self.definirPermissoesUser(udata[0], udata[2], udata[1])
+                        client_socket.sendall(r.encode('utf-8'))
         except KeyboardInterrupt:
             self.server_socket.close()
             print("Master encerrado.")
 
     def criarUser(self, nome, pw):
         try:
-            if os.system(f"sudo useradd -m {nome}") != 0:
-                return "Utilizador de sistema já existente"
+            os.system(f"sudo useradd -m {nome}")
             os.system(f"echo '{nome}:{pw}' | sudo chpasswd")
-            if not os.path.exists(f"DataBase/{nome}"): os.makedirs(f"DataBase/{nome}")
             print(f"Usuário {nome} criado com sucesso!")
-            self.criarGrupo(nome)
-            self.adicionarUserGrupo(nome,nome)
-            self.definirPermissoesGrupo(nome, f"DataBase/{nome}", '070')
+            self.adicionarUserGrupo(nome, 'code')
             return "SUCESS"
         except Exception as e:
             print(f"Erro ao criar usuário: {e}")

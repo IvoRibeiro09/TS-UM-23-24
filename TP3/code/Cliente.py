@@ -1,7 +1,7 @@
 from message import *
-from socketFuncs.socketFuncs import join_tls_socket
+from socketFuncs.socketFuncs import join_tls_socket, join_tcp_socket
 from Auth_cert.Auth_cert import load_data, extract_public_key
-import os, pwd, sys
+import os, pwd, sys, csv
 
 path = 'DataBase/'
 
@@ -9,6 +9,7 @@ class cliente:
     def __init__(self, name, pw):
         self.username = name
         self.password = pw
+        #self.masters_con = join_tcp_socket('127.0.0.1', 12345)
         self.privateKey, self.publicKey, self.ca = load_data(self.username)
         self.server_socket = join_tls_socket("127.0.0.2", 12345)
         self.pks = {"server": extract_public_key('SERVER.crt'), 
@@ -22,7 +23,6 @@ class cliente:
         self.server_socket.close()
 
     def start(self):
-        if not os.path.exists(f"DataBase/{self.username}"): os.makedirs(f"DataBase/{self.username}")
         self.menu()
         
     def updateMenu(self):
@@ -83,8 +83,19 @@ class cliente:
 
     def displayMailBox(self):
         # percorrer a diretoria com o meu nome
+        # ler o ficehiro csv 
+        new = 0
+        with open(f"{path}{self.username}/log.csv", newline='') as arquivo_csv:
+            leitor_csv = csv.reader(arquivo_csv)
+            for linha in leitor_csv:
+                print(linha)
+                if "nLida" in linha:
+                    new+=1
+        
+        if new == 0:
+            print("Não tem mensagens novas!")
+        # dar display das mensagens la descritas com não lidas
         # desincriptar as ultimas 20 mensgens em caso de erro retornar erro no display
-        pass
 
     def displayLiveChat(self):
         # perguntar quem esta a pedir live chat e aceitar ou rejeitar

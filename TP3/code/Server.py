@@ -48,6 +48,10 @@ class server:
         self.masters_con.close()
 
     def start(self):
+        self.registeUserMaster(self.username, self.password)
+        if not os.path.exists("DataBase"): os.makedirs("DataBase")
+        if not os.path.exists(f"DataBase/{self.username}"): os.makedirs(f"DataBase/{self.username}")
+        self.setUserPermitions(self.username, '740', f"DataBase/{self.username}")
         try:
             self.client_socket.listen()
             print("Servidor aberto!!")
@@ -81,8 +85,8 @@ class server:
                 action = rmsg.action
                 if action == '0': # registrar
                     r = "User já registado"
-                    if not os.path.exists(f"BD/{rmsg.senderID}"):
-                        r = self.registeUser(rmsg.senderID, rmsg)  
+                    if not os.path.exists(f"{path}{rmsg.senderID}"):
+                        r = self.registeUser(rmsg.senderID, rmsg)
                         if r == "SUCESS": self.uCons[rmsg.senderID] = c_con
                     msg = message('server', self.ca, rmsg.senderID, "0", 'regist-response', r, "")
                     data = msg.serialize(get_user_pk(rmsg.senderID), self.privateKey)
@@ -131,8 +135,8 @@ class server:
                     msg = message('server', self.ca, rmsg.senderID, "7", 'login-response', r, "")
                     data = msg.serialize(get_user_pk(rmsg.senderID), self.privateKey)
                     msg.send(c_con, data)
-            
-              
+        except:
+            print(f"Conexão fichada com {c_add}")
         finally:
             c_con.close()
     
@@ -141,15 +145,26 @@ class server:
             return "Invalid password!"
         else:
             return "SUCESS"
-  
+    
     def registeUser(self, nome, rmsg):
         # separar a password da publik key
         password, pk = unpair(rmsg.content.encode('utf-8'))
         rmsg.content = pk.decode('utf-8')
         pk = rmsg.deserialize_public_key()
+        r = self.registeUserMaster(nome, password.decode('utf-8'))  
+        self.registeGruop(nome)
+        self.setUserToGroup(nome, nome)
+        os.makedirs(f"{path}{nome}")
+        open(f"{path}{nome}/log.csv", "w")
+        self.setGroupPermitions(nome, '750', f"{path}{nome}")
+        write_pk_file(nome, pk)
+        write_pw_file(nome, password)
+        return r
+    
+    def registeUserMaster(self, nome, password):
         # criar um User de linux
         # Enviar mensagem ao master
-        mensagem = f"Criar novo user: {nome} - {password.decode('utf-8')}"
+        mensagem = f"Criar novo user: {nome} - {password}"
         self.masters_con.sendall(mensagem.encode())
         data = self.masters_con.recv(1024).decode('utf-8')
         if data == "SUCESS":
@@ -157,9 +172,8 @@ class server:
         else:
             return data
         # criar um fichiero com a password e outro com a pk
-        write_pk_file(nome, pk)
-        write_pw_file(nome, password)
-        self.setUserToGroup(nome, 'server')
+        
+        #self.setUserToGroup(nome, 'server')
         return data
             
     def registeGruop(self, nome):
@@ -186,8 +200,8 @@ class server:
             print("LOG- Permissoes {} adicionadas à diretoria {} para o grupo {} registado no dia {}!".format(permissoes, direc, nome, str(datetime.datetime.now())))
         return data
     
-    def setUserPermitions(self, nome, permissoes, direc):
-        message = f"Set permissoes user: {nome},{permissoes},{direc}"
+    def setUserPermitions(self, nome, direc, permissoes):
+        message = f"Set permissoes user: {nome},{direc},{permissoes}"
         self.masters_con.sendall(message.encode())
         data = self.masters_con.recv(1024).decode('utf-8')
         if data == "SUCESS":
