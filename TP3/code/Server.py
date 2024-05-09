@@ -175,7 +175,9 @@ class server:
                                 if rmsg.subject == '':
                                     linha[4]= "TRUE"
                                 else:
-                                    linha[4]=str(eval(linha[4]).append(rmsg.senderID))
+                                    lis = eval(linha[4])
+                                    lis.append(rmsg.senderID)
+                                    linha[4]=str(lis)
 
                         # Escrever o conteúdo modificado de volta para o arquivo
                         with open(f"{path}{user}/log.csv", mode='w', newline='') as arquivo_csv:

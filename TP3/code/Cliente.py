@@ -130,7 +130,6 @@ class cliente:
         with open(f"{path}{name}/log.csv", newline='') as arquivo_csv:
             leitor_csv = csv.reader(arquivo_csv)
             for linha in leitor_csv:
-                print(linha)
                 if self.username not in eval(linha[4]):
                     nao_lidas.append((linha[0],linha[1]))
 
