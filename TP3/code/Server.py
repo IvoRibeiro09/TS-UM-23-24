@@ -154,6 +154,8 @@ class server:
                                 msg = message('server', self.ca, data[1], '4', 'livechat', f"accept:lvchat{self.nlivechats}", "")
                                 msg.serialize(get_user_pk(data[1]), self.privateKey)
                                 msg.send(self.uCons[data[1]])
+                                self.nlivechats += 1
+                                self.livechatRun(rmsg.senderID, data[1], f"lvchat{self.nlivechats}", c_con)
                                 print(f"LOG- User {rmsg.senderID} aceitou livechat com {data[1]}!")
                         elif '!ask' in rmsg.content:
                             data = rmsg.content.split('-')
@@ -331,7 +333,27 @@ class server:
             return 1
         else:
             return-1
-
+        
+    def livechatRun(self, u1, u2, dir, c_con):
+        if not os.path.exists(f"Database/{dir}"): os.makedirs(f"Database/{dir}")
+        with open(f"Database/{dir}/lv.txt", "wb+") as file: pass
+        self.registeGruop(f"{dir}")
+        self.setGroupPermitions(f"{dir}", 740, f"Database/{dir}")
+        self.setUserToGroup(u1, f"{dir}")
+        self.setUserToGroup(u2, f"{dir}")
+        if not os.path.exists(f"Database/{dir}/lv.txt"):
+            raise ValueError("Diretoria de livechat não existe")
+        texto = ""
+        while texto != '!exit':
+            rmsg = message()
+            data = rmsg.recieve(c_con)
+            if len(data) == 0: break
+            if rmsg.deserialize(data, self.privateKey) < 0:
+                raise ValueError("MSG SERVICE: verification error!") 
+            texto = rmsg.content
+            file.write(f"{rmsg.senderID}- {texto}")
+    
+    
 username = 'server'
 password = 'root'
 server(username, password)

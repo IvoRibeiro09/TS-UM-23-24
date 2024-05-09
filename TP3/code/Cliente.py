@@ -183,7 +183,7 @@ class cliente:
     def startLiveChat(self, lvchat):
         try: 
             texto = input("\n: ")
-            while texto != 'exit':
+            while texto != '!exit':
                 with open(f"{path}{lvchat}/{lvchat}.txt", newline='') as arquivo_csv:
                     leitor_csv = csv.reader(arquivo_csv)
                     for linha in leitor_csv:
@@ -192,9 +192,10 @@ class cliente:
                             print("{:<30}{}".format("", data[1]))
                         else:
                             print("{:<30}{}".format(data[1], ""))
-                msg = message(self.username, self.ca, lvchat, '6', 'live-chat', texto,"")
-                serialized_msg = msg.serialize(self.pks['server'], self.privateKey)
-                msg.send(self.server_socket, serialized_msg)
+                if texto != '\n':
+                    msg = message(self.username, self.ca, lvchat, '4', 'live-chat', texto,"")
+                    serialized_msg = msg.serialize(self.pks['server'], self.privateKey)
+                    msg.send(self.server_socket, serialized_msg)
                 texto = input("\n: ")
         finally:
             return 
