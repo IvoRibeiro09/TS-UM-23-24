@@ -36,7 +36,7 @@ class MasterUser:
                     elif "Adicionar ao grupo:" in message:
                         data = message.split(": ")
                         udata = data[1].split(" - ")
-                        r = self.adicionarUserGrupo(udata[1], udata[0])
+                        r = self.adicionarUserGrupo(udata[0], udata[1])
                         client_socket.sendall(r.encode('utf-8'))
                     elif "Set permissoes grupo:" in message:
                         data = message.split(": ")
