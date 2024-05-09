@@ -12,10 +12,7 @@ path = "DataBase/"
 
 def get_user_pk(nome):
     if not os.path.exists(f"{serverPath}pk-{nome}.pem"):
-        if os.path.exists(f"{path}{nome}"):##significa que é um grupo
-            return 0
-        else:
-            raise ValueError("User ou grupo não esta na base de dados")
+       raise ValueError("User não esta na base de dados")
     else:
         with open(f"{serverPath}pk-{nome}.pem", "rb") as file:
             file_data = file.read()
@@ -98,26 +95,11 @@ class server:
                     msg.send(c_con, data)
 
                 elif action == '1': # pedido de entrar num grupo
-                    valid = rmsg.decrypt_content(self.privateKey,get_user_pk(rmsg.senderID))
-                    if valid > 0:
-                        data = self.setUserToGroup(rmsg.senderID,rmsg.content)
-                        if data != "SUCESS":
-                            print(f"LOG- Falha ao registrar {rmsg.senderID} no Grupo {rmsg.content}")
-                    else:
-                        print(f"LOG- Falha ao decifrar content")   
-
+                    
+                    print("LOG- Cliente {} enviou uma mensagem no dia {}!".format(uid,str(datetime.datetime.now())))
+                
                 elif action == '2': # criar grupo
-                    valid = rmsg.decrypt_content(self.privateKey,get_user_pk(rmsg.senderID))
-                    if valid > 0:
-                        data = self.registeGruop(rmsg.content)
-                        if data == "SUCESS":
-                            data = self.setUserToGroup(rmsg.senderID,rmsg.content)
-                            if data != "SUCESS":
-                                print(f"LOG- Falha ao registrar {rmsg.senderID} no Grupo {rmsg.content}")
-                        else:
-                            print(f"LOG- Falha ao criar Grupo {rmsg.content}")
-                    else:
-                        print(f"LOG- Falha ao decifrar content")
+                    pass
 
                 elif action == '3' : # envio de mensagem 
                     # guradar a mensagem numa pasta
@@ -128,12 +110,12 @@ class server:
                         valido = self.user_logs(rmsg.reciverID,rmsg,valido)
                     else:
                         print(f"LOG- Erro ao guardar mensagem do utlizador {rmsg.senderID} na pasta do utilizador {rmsg.reciverID}.")
-               
+                
                 elif action == '4': # pedido de livechat
                     texto = ""
                     while texto != '!exit':
                         print(f"LOG- User {rmsg.senderID} em modo liveChat! {rmsg.content}")
-                        if '!start' in rmsg.content:
+                        if 'start' in rmsg.content:
                             self.livechats[rmsg.senderID] = 1
                             texto = "user:"
                             for i in self.livechats.keys(): 
@@ -143,7 +125,7 @@ class server:
                             cypher = msg.serialize(get_user_pk(rmsg.senderID), self.privateKey)
                             msg.send(c_con, cypher)
                             print(f"LOG- User {rmsg.senderID} em modo liveChat!")
-                        elif '!acpt-' in rmsg.content:
+                        elif 'acpt-' in rmsg.content:
                             data = rmsg.content.split('-')
                             if data[1] in self.livechats.keys():
                                 self.livechats[rmsg.senderID] = 2
@@ -155,7 +137,7 @@ class server:
                                 msg.serialize(get_user_pk(data[1]), self.privateKey)
                                 msg.send(self.uCons[data[1]])
                                 print(f"LOG- User {rmsg.senderID} aceitou livechat com {data[1]}!")
-                        elif '!ask' in rmsg.content:
+                        elif 'ask' in rmsg.content:
                             data = rmsg.content.split('-')
                             #if data[1] in self.livechats.keys():
                             print(data[1])
@@ -166,8 +148,7 @@ class server:
                         elif "!exit" in rmsg.content:
                             print(f"LOG- User {rmsg.senderID} saiu do modo liveChat!")
                             self.livechats[rmsg.senderID] = 0
-                        # else escrever no ficheiro
-
+                    
                 elif action == '5': # resposta a pedido de livechat
                     if rmsg.content == 'Accept':
                         # abrir um ficehiro no live msg com permissoes de leitura dos dois clientes
@@ -187,41 +168,9 @@ class server:
                     msg = message('server', self.ca, rmsg.senderID, "7", 'login-response', r, "")
                     data = msg.serialize(get_user_pk(rmsg.senderID), self.privateKey)
                     msg.send(c_con, data)
-
-                elif action == '8': # por as mensagens como lidas
-                    valid = rmsg.decrypt_content(self.privateKey,get_user_pk(rmsg.senderID))
-                    if valid == -1:
-                        print(f"LOG- Erro ao decifrar content da mensagem do utlizador {rmsg.senderID}.")
-                    else:
-                        num = eval(rmsg.content)
-                        if rmsg.subject == '':
-                            user =rmsg.senderID
-                        else:
-                            user =rmsg.subject
-
-                        with open(f"{path}{user}/log.csv", mode='r', newline='') as arquivo_csv:
-                            leitor_csv = csv.reader(arquivo_csv)
-                            linhas = list(leitor_csv)
-
-                        for linha in linhas:
-                            if linha[0] in num:
-                                if rmsg.subject == '':
-                                    linha[4]= "TRUE"
-                                else:
-                                    lis = eval(linha[4])
-                                    lis.append(rmsg.senderID)
-                                    linha[4]=str(lis)
-
-                        # Escrever o conteúdo modificado de volta para o arquivo
-                        with open(f"{path}{user}/log.csv", mode='w', newline='') as arquivo_csv:
-                            escritor_csv = csv.writer(arquivo_csv)
-                            escritor_csv.writerows(linhas)
-                        
-                        print(f"LOG- Atualizaçao da leitura de mensagens do utlizador {rmsg.senderID}.")
-
         except Exception as e:
             print(e)
-            print(f"Conexão fichada com {c_add}")
+            print(f"Conexão fechada com {c_add}")
         finally:
             c_con.close()
     
@@ -266,9 +215,6 @@ class server:
         self.masters_con.sendall(message.encode())
         data = self.masters_con.recv(1024).decode('utf-8')
         if data == "SUCESS":
-            os.makedirs(f"{path}{nome}")
-            open(f"{path}{nome}/log.csv", "w")
-            self.setGroupPermitions(nome, '750', f"{path}{nome}")
             print("LOG- Grupo {} registado no dia {}!".format(nome, str(datetime.datetime.now())))
         return data
     
@@ -297,14 +243,11 @@ class server:
         return data
 
     def guardar_mensagem(self,mensagem_rec):
-        chave_receiber = get_user_pk(mensagem_rec.reciverID)
-
-        if chave_receiber == 0:
-            cypher = f"Subject:{mensagem_rec.subject}\nSenderID:{mensagem_rec.senderID}\nContent:{mensagem_rec.content}".encode('utf-8')
-        else:
-            mensagem_env = message(mensagem_rec.senderID, self.ca, mensagem_rec.reciverID, '3', mensagem_rec.subject, mensagem_rec.content, mensagem_rec.contentsign)
-            cypher = mensagem_env.serialize(chave_receiber, self.privateKey)
+        mensagem_env = message(mensagem_rec.senderID, self.ca, mensagem_rec.reciverID, '3', mensagem_rec.subject, mensagem_rec.content, mensagem_rec.contentsign)
             
+        chave_receiber = get_user_pk(mensagem_rec.reciverID)
+        cypher = mensagem_env.serialize(chave_receiber, self.privateKey)
+        
         if os.path.exists(f"{path}{mensagem_rec.reciverID}"):
             number = len(os.listdir(f"{path}{mensagem_rec.reciverID}"))
             while os.path.exists(f"{path}{mensagem_rec.reciverID}/{number}.bin"):
@@ -316,17 +259,10 @@ class server:
             return-1
 
     def user_logs(self,utilizador,msg,number):
-        user = True
-        if not os.path.exists(f"{serverPath}pk-{utilizador}.pem"):
-            user = False
-        print(user)
         if os.path.exists(f"{path}{utilizador}"):
             with open(f"{path}{utilizador}/log.csv", mode='a+', newline='') as arquivo_csv:
                 escritor_csv = csv.writer(arquivo_csv)
-                if user:
-                    linha = [number,msg.senderID,str(datetime.datetime.now()),msg.subject,"FALSE"]
-                else:
-                    linha = [number,msg.senderID,str(datetime.datetime.now()),msg.subject,'[]']
+                linha = [number,msg.senderID,str(datetime.datetime.now()),msg.subject,"FALSE"]
                 escritor_csv.writerow(linha)
             return 1
         else:

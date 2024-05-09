@@ -9,7 +9,6 @@ class cliente:
     def __init__(self, name, pw):
         self.username = name
         self.password = pw
-        #self.masters_con = join_tcp_socket('127.0.0.1', 12345)
         self.privateKey, self.publicKey, self.ca = load_data(self.username)
         self.server_socket = join_tls_socket("127.0.0.2", 12345)
         self.pks = {"server": extract_public_key('SERVER.crt'), 
@@ -33,10 +32,9 @@ class cliente:
         elif self.unreadMSG > 0 and self.liveMsg > 0:
             self.popup = " {} New Message! AND {} Live Chat! ".format(self.unreadMSG, self.liveMsg)
         self.help = """{}\n1- Check MAilBox!\n2- Check Live Chat!\n3- Send Message!
-4- Start Live Chat!\n5- Create Group!\n6- Join Group!\n7- Mensagens de um grupo!\n9- Close app!\n{}\n""".format((12*"#")+self.popup+(12*"#"), "#"*(24+len(self.popup)))
+4- Start Live Chat!\n9- Close app!\n{}\n""".format((12*"#")+self.popup+(12*"#"), "#"*(24+len(self.popup)))
 
     def menu(self):
-        os.system('clear')
         self.updateMenu()
         option = int(input(self.help))
         os.system('clear')
@@ -49,12 +47,6 @@ class cliente:
                 self.displayLiveChat()
             elif option == 4:
                 self.startLiveChat()
-            elif option == 5:
-                self.creat_group()
-            elif option == 6:
-                self.join_group()
-            elif option == 7:
-                self.displayGroupBox()
             self.updateMenu()
             option = int(input(self.help))
             os.system('clear')
@@ -69,9 +61,9 @@ class cliente:
         # saber se conheço o rid
         # se sim 
         # se não pedir ao server
-        #if rid not in self.pks.keys():
-        #    print("MSG Serviço: Destinatŕio inválido!\n(MSG SERVICE: unknown user!)")
-        #    return -1
+        if rid not in self.pks.keys():
+            print("MSG Serviço: Destinatŕio inválido!\n(MSG SERVICE: unknown user!)")
+            return -1
         """Verifica se a mensagem possui menos de 1000 bytes.
         Assina, cifra, serializa e envia as mensagens ao server"""
         # Verificar tamanho do conteúdo menor que 1000 bytes
@@ -80,82 +72,41 @@ class cliente:
             return print('A mensagem excedeu os 1000 bytes')
         # pk do servidor e do reciever
         public_key_server = self.pks['server']
+        public_key_reciever = self.pks[rid]
         # Cifrar conteúdo. 1 para o servidor receber a mensagem.
         msg = message(self.username, self.ca, rid, '3', subject, content,"")
         # encriptar o conteudo
-        if rid in self.pks.keys():
-            public_key_reciever = self.pks[rid]
-            msg.encrypt_content(public_key_reciever,self.privateKey)
+        msg.encrypt_content(public_key_reciever,self.privateKey)
         # Serializar a mensagem
         serialized_msg = msg.serialize(public_key_server, self.privateKey)
         msg.send(self.server_socket, serialized_msg)
         print('Mensagem enviada!(Message sent!)')  
 
     def displayMailBox(self):
-        os.system('clear')
         # percorrer a diretoria com o meu nome
         # ler o ficehiro csv 
-        nao_lidas = []
+        new = 0
         with open(f"{path}{self.username}/log.csv", newline='') as arquivo_csv:
             leitor_csv = csv.reader(arquivo_csv)
             for linha in leitor_csv:
-                if linha[4]=='FALSE':
-                    nao_lidas.append((linha[0],linha[1]))
-
-        if len(nao_lidas) == 0:
+                print(linha)
+                if "nLida" in linha:
+                    new+=1
+        
+        if new == 0:
             print("Não tem mensagens novas!")
-        else:
-            num=[]
-            for msg in nao_lidas:
-                with open(f"{path}{self.username}/{msg[0]}.bin", "rb") as file:
-                    file_data = file.read()
-                rmsg = message()
-                if rmsg.deserialize(file_data, self.privateKey) < 0:
-                    raise ValueError("MSG SERVICE: verification error!")
-                rmsg.decrypt_content(self.privateKey,self.pks[msg[1]])
-                num.append(msg[0])
-                print(f"Message number:{msg[0]}\nSubject: {rmsg.subject}\nContent: {rmsg.content}\n")
-            msg = message(self.username, self.ca, 'server','8', '', str(num), "")
-            msg.encrypt_content(self.pks['server'], self.privateKey)
-            cypher = msg.serialize(self.pks['server'], self.privateKey)
-            msg.send(self.server_socket,cypher)
         # dar display das mensagens la descritas com não lidas
         # desincriptar as ultimas 20 mensgens em caso de erro retornar erro no display
 
-    def displayGroupBox(self):
-        os.system('clear')
-        name = input("Name of the group:")
-        # percorrer a diretoria com o meu nome
-        # ler o ficehiro csv 
-        nao_lidas = []
-        with open(f"{path}{name}/log.csv", newline='') as arquivo_csv:
-            leitor_csv = csv.reader(arquivo_csv)
-            for linha in leitor_csv:
-                if self.username not in eval(linha[4]):
-                    nao_lidas.append((linha[0],linha[1]))
-
-        if len(nao_lidas) == 0:
-            print("Não tem mensagens novas!")
-        else:
-            num=[]
-            for msg in nao_lidas:
-                with open(f"{path}{name}/{msg[0]}.bin", "rb") as file:
-                    file_data = file.read()
-                rmsg = file_data.decode('utf-8')
-                num.append(msg[0])
-                print(rmsg)
-            msg = message(self.username, self.ca, 'server','8', name, str(num), "")
-            msg.encrypt_content(self.pks['server'], self.privateKey)
-            cypher = msg.serialize(self.pks['server'], self.privateKey)
-            msg.send(self.server_socket,cypher)
-
     def displayLiveChat(self):
         texto = "\n"
-        while True:
+        self.recieveMSGs()
+        while '!exit' not in texto:
+            os.system('clear')
             print("Live Chat Mode!")
-            if '!ask-' in texto:
+            if 'ask-' in texto:
                 msg = message(self.username, self.ca, 'server', '4', 'live-chat', texto,"")
-            elif "!acpt-" in texto:
+            elif "acpt-" in texto:
                 msg = message(self.username, self.ca, 'server', '4', 'live-chat', texto,"")
             else:
                 msg = message(self.username, self.ca, 'server', '4', 'live-chat', "start","")
@@ -169,18 +120,15 @@ class cliente:
                 data = rmsg.content.split(":")
                 for i in range(1, len(data)):
                     print(f"-> Utilizador {data[i]} disponivel!")
-                print("\n\t!ask-{user} to ask for a LiveChat!\n\t!acpt-{user} to accept a LiveChat!\n\tPress ENTER to refresh!\n\t!exit to exit")
+                print("\n\task-{user} to ask for a LiveChat!\n\tacpt-{user} to accept a LiveChat!\n\tPress ENTER to refresh!\n\t!exit to exit")
             elif "accept" in rmsg.content:
                 data = rmsg.content.split(":")
                 self.startLiveChat(data[1])
-                break
             texto = input(": ")
         # perguntar quem esta a pedir live chat e aceitar ou rejeitar
-        msg = message(self.username, self.ca, 'server', '4', 'live-chat', "!exit","")
-        serialized_msg = msg.serialize(self.pks['server'], self.privateKey)
-        msg.send(self.server_socket, serialized_msg) 
-    
+
     def startLiveChat(self, lvchat):
+        print(lvchat)
         try: 
             texto = input("\n: ")
             while texto != 'exit':
@@ -208,13 +156,7 @@ class cliente:
         pass
         """
 
-    def creat_group(self):
-        name = input("Name of the group:")
-        msg = message(self.username, self.ca, 'server','2', '', name, "")
-        msg.encrypt_content(self.pks['server'], self.privateKey)
-        cypher = msg.serialize(self.pks['server'], self.privateKey)
-        msg.send(self.server_socket,cypher)
-
+    
     def ask_queue(self, type):
         public_key_server = self.pks['server']
         messagem = message(self.id, self.ca, "server", type, "", "", "")
@@ -259,12 +201,6 @@ class cliente:
             print("#####################################################################\n")
         return 0
         
-    def join_group(self):
-        name = input("Name of the group:")
-        msg = message(self.username, self.ca, 'server','1', '', name, "")
-        msg.encrypt_content(self.pks['server'], self.privateKey)
-        cypher = msg.serialize(self.pks['server'], self.privateKey)
-        msg.send(self.server_socket,cypher)
 
 if __name__ == "__main__":
     # Verificar se há argumentos passados na linha de comando
