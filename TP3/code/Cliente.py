@@ -71,12 +71,6 @@ class cliente:
         subject = input("Assunto (Subject): ")
         content = input("Mensagem (Content): ")
         print("#####################################################################\n")
-        # saber se conheço o rid
-        # se sim 
-        # se não pedir ao server
-        #if rid not in self.pks.keys():
-        #    print("MSG Serviço: Destinatŕio inválido!\n(MSG SERVICE: unknown user!)")
-        #    return -1
         """Verifica se a mensagem possui menos de 1000 bytes.
         Assina, cifra, serializa e envia as mensagens ao server"""
         # Verificar tamanho do conteúdo menor que 1000 bytes
@@ -106,7 +100,6 @@ class cliente:
             for linha in leitor_csv:
                 if linha[4]=='FALSE':
                     nao_lidas.append((linha[0],linha[1]))
-
         if len(nao_lidas) == 0:
             print("Não tem mensagens novas!")
         else:
@@ -139,7 +132,6 @@ class cliente:
                 for linha in leitor_csv:
                     if self.username not in eval(linha[4]):
                         nao_lidas.append((linha[0],linha[1]))
-
             if len(nao_lidas) == 0:
                 print("Não tem mensagens novas!")
             else:
@@ -168,7 +160,6 @@ class cliente:
         receive_thread.join()
         stop_event.set()
         send_thread.join()
-        print(self.LiveChat)
         self.startLiveChat()
         # perguntar quem esta a pedir live chat e aceitar ou rejeitar
         msg = message(self.username, self.ca, 'server', '4', 'live-chat', "!exit","")
@@ -182,7 +173,7 @@ class cliente:
             if not cypher:break
             rmsg.deserialize(cypher, self.privateKey)
             if "accept:" in rmsg.content:
-                print("ress ENTER to start!")
+                print("Press ENTER to start!")
                 data = rmsg.content.split(":")
                 self.LiveChat = data[1]
                 break

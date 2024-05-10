@@ -120,11 +120,8 @@ class server:
                     else:
                         print(f"LOG- Falha ao decifrar content")
 
-                elif action == '3' : # envio de mensagem 
-                    # guradar a mensagem numa pasta
-                    valido = self.guardar_mensagem(rmsg)
-                    # atualizar o ficheiro de logs do utilizador para o qual enviamos
-                    if valido>0:
+                elif action == '3' : # guradar a mensagem numa pasta
+                    if self.guardar_mensagem(rmsg) > 0:
                         print(f"LOG- Mensagem recebida do utlizador {rmsg.senderID} para o utilizador {rmsg.reciverID}.")
                         valido = self.user_logs(rmsg.reciverID,rmsg,valido)
                     else:
@@ -132,50 +129,12 @@ class server:
                
                 elif action == '4': # pedido de livechat
                     self.uCons[rmsg.senderID] = c_con
-                    if '!start' in rmsg.content:
-                        self.livechats[rmsg.senderID] = 1
-                        texto = "user:"
-                        for i in self.livechats.keys(): 
-                            if self.livechats[i] == 1 and i != rmsg.senderID:
-                                texto += i
-                        msg = message('server', self.ca, rmsg.senderID, '4', 'livechat', texto, "")
-                        cypher = msg.serialize(get_user_pk(rmsg.senderID), self.privateKey)
-                        msg.send(c_con, cypher)
-                        print(f"LOG- User {rmsg.senderID} em modo liveChat!")
-                    elif '!acpt-' in rmsg.content:
-                        data = rmsg.content.split('-')
-                        if data[1] in self.livechats.keys():
-                            self.livechats[rmsg.senderID] = 2
-                            self.livechats[data[1]] = 2
-                            self.nlivechats += 1
-                            lv = self.nlivechats 
-                            msg = message('server', self.ca, rmsg.senderID, '4', 'livechat', f"accept:lvchat{lv}", "")
-                            cypher1 = msg.serialize(get_user_pk(rmsg.senderID), self.privateKey)
-                            msg.send(c_con, cypher1)
-                            msg = message('server', self.ca, data[1], '4', 'livechat', f"accept:lvchat{lv}", "")
-                            cypher2 = msg.serialize(get_user_pk(data[1]), self.privateKey)
-                            msg.send(self.uCons[data[1]], cypher2)
-                            self.livechatRun(rmsg.senderID, data[1], f"lvchat{lv}", c_con, self.uCons[data[1]])
-                            print(f"LOG- User {rmsg.senderID} aceitou livechat com {data[1]}!")
-                    elif '!ask-' in rmsg.content:
-                        data = rmsg.content.split('-')
-                        print(data[1])
-                        msg = message('server', self.ca, data[1], '4', 'livechat', "ask-"+rmsg.senderID, "")
-                        cypher = msg.serialize(get_user_pk(data[1]), self.privateKey)
-                        msg.send(self.uCons[data[1]], cypher)
-                        print(f"LOG- User {rmsg.senderID} pediu livechat com {data[1]}!")
-                    elif "!exit" in rmsg.content:
-                        print(f"LOG- User {rmsg.senderID} saiu do modo liveChat!")
-                        self.livechats[rmsg.senderID] = 0
-                        data = self.files[rmsg.senderID].split("/")
-                        self.removerGrupo(data[1])
-                        self.files[rmsg.senderID] = ""
+                    self.livechatControl()
 
                 elif action == '6': #escrever no ficehiro comum as mensagens recebidas
                     with open(self.files[rmsg.senderID], "a") as file:
                         texto = rmsg.content
                         file.write(f"{rmsg.senderID}- {texto}\n")
-                        #print(f"{rmsg.senderID}- {texto}")
 
                 elif action == '7': # login user
                     r = self.login(rmsg.senderID, rmsg.content)
@@ -257,8 +216,6 @@ class server:
         data = self.masters_con.recv(1024).decode('utf-8')
         if data == "SUCESS":
             print("LOG- Cliente {} registado no dia {}!".format(nome, str(datetime.datetime.now())))
-        else:
-            return data
         # criar um fichiero com a password e outro com a pk
         #self.setUserToGroup(nome, 'server')
         return data
@@ -332,7 +289,47 @@ class server:
         else:
             return-1
         
-    def livechatRun(self, u1, u2, dir, c_con1, c_con2):
+    def livechatControl(self, nome, content, c_con):
+        if '!start' in content:
+            self.livechats[nome] = 1
+            texto = ""
+            for i in self.livechats.keys(): 
+                if self.livechats[i] == 1 and i != nome:
+                    texto += i + "está disponivel para livechat!\n"
+            msg = message('server', self.ca, nome, '4', 'livechat', texto, "")
+            cypher = msg.serialize(get_user_pk(nome), self.privateKey)
+            msg.send(c_con, cypher)
+            print(f"LOG- User {nome} em modo liveChat!")
+        elif '!acpt-' in content:
+            data = content.split('-')
+            if data[1] in self.livechats.keys():
+                self.livechats[nome] = 2
+                self.livechats[data[1]] = 2
+                self.nlivechats += 1
+                lv = self.nlivechats 
+                msg = message('server', self.ca, nome, '4', 'livechat', f"accept:lvchat{lv}", "")
+                cypher1 = msg.serialize(get_user_pk(nome), self.privateKey)
+                msg.send(c_con, cypher1)
+                msg = message('server', self.ca, data[1], '4', 'livechat', f"accept:lvchat{lv}", "")
+                cypher2 = msg.serialize(get_user_pk(data[1]), self.privateKey)
+                msg.send(self.uCons[data[1]], cypher2)
+                self.livechatRun(nome, data[1], f"lvchat{lv}")
+                print(f"LOG- User {nome} aceitou livechat com {data[1]}!")
+        elif '!ask-' in content:
+            data = content.split('-')
+            print(data[1])
+            msg = message('server', self.ca, data[1], '4', 'livechat', nome +" enviou um pedido de livechat!", "")
+            cypher = msg.serialize(get_user_pk(data[1]), self.privateKey)
+            msg.send(self.uCons[data[1]], cypher)
+            print(f"LOG- User {nome} pediu livechat com {data[1]}!")
+        elif "!exit" in content:
+            print(f"LOG- User {nome} saiu do modo liveChat!")
+            self.livechats[nome] = 0
+            data = self.files[nome].split("/")
+            self.removerGrupo(data[1])
+            self.files[nome] = ""
+        
+    def livechatRun(self, u1, u2, dir):
         if not os.path.exists(f"{path}{dir}"): os.makedirs(f"{path}{dir}")
         with open(f"{path}{dir}/lv.txt", "w") as file: pass
         self.registeGruop(f"{dir}")
