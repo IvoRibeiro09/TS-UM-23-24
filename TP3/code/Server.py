@@ -49,6 +49,7 @@ class server:
         self.uCons = {}
         self.livechats = {}
         self.nlivechats = 0
+        self.files = {}
         self.start()
         self.masters_con.close()
 
@@ -130,59 +131,51 @@ class server:
                         print(f"LOG- Erro ao guardar mensagem do utlizador {rmsg.senderID} na pasta do utilizador {rmsg.reciverID}.")
                
                 elif action == '4': # pedido de livechat
-                    texto = ""
-                    while texto != '!exit':
-                        print(f"LOG- User {rmsg.senderID} em modo liveChat! {rmsg.content}")
-                        if '!start' in rmsg.content:
-                            self.livechats[rmsg.senderID] = 1
-                            texto = "user:"
-                            for i in self.livechats.keys(): 
-                                if self.livechats[i] == 1 and i != rmsg.senderID:
-                                    texto += i
-                            msg = message('server', self.ca, rmsg.senderID, '4', 'livechat', texto, "")
-                            cypher = msg.serialize(get_user_pk(rmsg.senderID), self.privateKey)
-                            msg.send(c_con, cypher)
-                            print(f"LOG- User {rmsg.senderID} em modo liveChat!")
-                        elif '!acpt-' in rmsg.content:
-                            data = rmsg.content.split('-')
-                            if data[1] in self.livechats.keys():
-                                self.livechats[rmsg.senderID] = 2
-                                self.livechats[data[1]] = 2
-                                msg = message('server', self.ca, rmsg.senderID, '4', 'livechat', f"accept:lvchat{self.nlivechats}", "")
-                                msg.serialize(get_user_pk(rmsg.senderID), self.privateKey)
-                                msg.send(self.uCons[data[1]])
-                                msg = message('server', self.ca, data[1], '4', 'livechat', f"accept:lvchat{self.nlivechats}", "")
-                                msg.serialize(get_user_pk(data[1]), self.privateKey)
-                                msg.send(self.uCons[data[1]])
-                                self.nlivechats += 1
-                                self.livechatRun(rmsg.senderID, data[1], f"lvchat{self.nlivechats}", c_con)
-                                print(f"LOG- User {rmsg.senderID} aceitou livechat com {data[1]}!")
-                        elif '!ask' in rmsg.content:
-                            data = rmsg.content.split('-')
-                            #if data[1] in self.livechats.keys():
-                            print(data[1])
-                            msg = message('server', self.ca, data[1], '4', 'livechat', "ask-"+rmsg.senderID, "")
-                            cypher = msg.serialize(get_user_pk(data[1]), self.privateKey)
-                            msg.send(self.uCons[data[1]], cypher)
-                            print(f"LOG- User {rmsg.senderID} pediu livechat com {data[1]}!")
-                        elif "!exit" in rmsg.content:
-                            print(f"LOG- User {rmsg.senderID} saiu do modo liveChat!")
-                            self.livechats[rmsg.senderID] = 0
-                        # else escrever no ficheiro
+                    self.uCons[rmsg.senderID] = c_con
+                    if '!start' in rmsg.content:
+                        self.livechats[rmsg.senderID] = 1
+                        texto = "user:"
+                        for i in self.livechats.keys(): 
+                            if self.livechats[i] == 1 and i != rmsg.senderID:
+                                texto += i
+                        msg = message('server', self.ca, rmsg.senderID, '4', 'livechat', texto, "")
+                        cypher = msg.serialize(get_user_pk(rmsg.senderID), self.privateKey)
+                        msg.send(c_con, cypher)
+                        print(f"LOG- User {rmsg.senderID} em modo liveChat!")
+                    elif '!acpt-' in rmsg.content:
+                        data = rmsg.content.split('-')
+                        if data[1] in self.livechats.keys():
+                            self.livechats[rmsg.senderID] = 2
+                            self.livechats[data[1]] = 2
+                            self.nlivechats += 1
+                            lv = self.nlivechats 
+                            msg = message('server', self.ca, rmsg.senderID, '4', 'livechat', f"accept:lvchat{lv}", "")
+                            cypher1 = msg.serialize(get_user_pk(rmsg.senderID), self.privateKey)
+                            msg.send(c_con, cypher1)
+                            msg = message('server', self.ca, data[1], '4', 'livechat', f"accept:lvchat{lv}", "")
+                            cypher2 = msg.serialize(get_user_pk(data[1]), self.privateKey)
+                            msg.send(self.uCons[data[1]], cypher2)
+                            self.livechatRun(rmsg.senderID, data[1], f"lvchat{lv}", c_con, self.uCons[data[1]])
+                            print(f"LOG- User {rmsg.senderID} aceitou livechat com {data[1]}!")
+                    elif '!ask-' in rmsg.content:
+                        data = rmsg.content.split('-')
+                        print(data[1])
+                        msg = message('server', self.ca, data[1], '4', 'livechat', "ask-"+rmsg.senderID, "")
+                        cypher = msg.serialize(get_user_pk(data[1]), self.privateKey)
+                        msg.send(self.uCons[data[1]], cypher)
+                        print(f"LOG- User {rmsg.senderID} pediu livechat com {data[1]}!")
+                    elif "!exit" in rmsg.content:
+                        print(f"LOG- User {rmsg.senderID} saiu do modo liveChat!")
+                        self.livechats[rmsg.senderID] = 0
+                        data = self.files[rmsg.senderID].split("/")
+                        self.removerGrupo(data[1])
+                        self.files[rmsg.senderID] = ""
 
-                elif action == '5': # resposta a pedido de livechat
-                    if rmsg.content == 'Accept':
-                        # abrir um ficehiro no live msg com permissoes de leitura dos dois clientes
-                        # e enviar a indicação aos dois clientes com o nome do ficehiro
-                        # a escrever tem ser cli1 - o que ele escreveu
-                        # para eles perceberem
-                        # eles vao abrir e ler
-                        pass
                 elif action == '6': #escrever no ficehiro comum as mensagens recebidas
-                    with open(f'{rmsg.subject}.txt', "a") as arquivo:  
-                        # Escrever no arquivo o conteudo com o nome dele antes cli1 - 
-                        arquivo.write("Nova linha!\n")
-                    pass
+                    with open(self.files[rmsg.senderID], "a") as file:
+                        texto = rmsg.content
+                        file.write(f"{rmsg.senderID}- {texto}\n")
+                        #print(f"{rmsg.senderID}- {texto}")
 
                 elif action == '7': # login user
                     r = self.login(rmsg.senderID, rmsg.content)
@@ -200,11 +193,9 @@ class server:
                             user =rmsg.senderID
                         else:
                             user =rmsg.subject
-
                         with open(f"{path}{user}/log.csv", mode='r', newline='') as arquivo_csv:
                             leitor_csv = csv.reader(arquivo_csv)
                             linhas = list(leitor_csv)
-
                         for linha in linhas:
                             if linha[0] in num:
                                 if rmsg.subject == '':
@@ -213,17 +204,21 @@ class server:
                                     lis = eval(linha[4])
                                     lis.append(rmsg.senderID)
                                     linha[4]=str(lis)
-
                         # Escrever o conteúdo modificado de volta para o arquivo
                         with open(f"{path}{user}/log.csv", mode='w', newline='') as arquivo_csv:
                             escritor_csv = csv.writer(arquivo_csv)
                             escritor_csv.writerows(linhas)
-                        
                         print(f"LOG- Atualizaçao da leitura de mensagens do utlizador {rmsg.senderID}.")
+
+                elif action == '5': # sair do grupo
+                   self.removerGrupo(rmsg.content)
+
+                elif action == '9': # remover utilizador
+                    pass
 
         except Exception as e:
             print(e)
-            print(f"Conexão fichada com {c_add}")
+            print(f"Conexão fechada com {c_add}")
         finally:
             c_con.close()
     
@@ -259,7 +254,6 @@ class server:
         else:
             return data
         # criar um fichiero com a password e outro com a pk
-        
         #self.setUserToGroup(nome, 'server')
         return data
             
@@ -268,7 +262,7 @@ class server:
         self.masters_con.sendall(message.encode())
         data = self.masters_con.recv(1024).decode('utf-8')
         if data == "SUCESS":
-            os.makedirs(f"{path}{nome}")
+            if not os.path.exists(f"{path}{nome}"): os.makedirs(f"{path}{nome}")
             open(f"{path}{nome}/log.csv", "w")
             self.setGroupPermitions(nome, '750', f"{path}{nome}")
             print("LOG- Grupo {} registado no dia {}!".format(nome, str(datetime.datetime.now())))
@@ -300,13 +294,11 @@ class server:
 
     def guardar_mensagem(self,mensagem_rec):
         chave_receiber = get_user_pk(mensagem_rec.reciverID)
-
         if chave_receiber == 0:
             cypher = f"Subject:{mensagem_rec.subject}\nSenderID:{mensagem_rec.senderID}\nContent:{mensagem_rec.content}".encode('utf-8')
         else:
             mensagem_env = message(mensagem_rec.senderID, self.ca, mensagem_rec.reciverID, '3', mensagem_rec.subject, mensagem_rec.content, mensagem_rec.contentsign)
             cypher = mensagem_env.serialize(chave_receiber, self.privateKey)
-            
         if os.path.exists(f"{path}{mensagem_rec.reciverID}"):
             number = len(os.listdir(f"{path}{mensagem_rec.reciverID}"))
             while os.path.exists(f"{path}{mensagem_rec.reciverID}/{number}.bin"):
@@ -334,37 +326,30 @@ class server:
         else:
             return-1
         
-    def livechatRun(self, u1, u2, dir, c_con):
-        if not os.path.exists(f"Database/{dir}"): os.makedirs(f"Database/{dir}")
-        with open(f"Database/{dir}/lv.txt", "wb+") as file: pass
+    def livechatRun(self, u1, u2, dir, c_con1, c_con2):
+        if not os.path.exists(f"{path}{dir}"): os.makedirs(f"{path}{dir}")
+        with open(f"{path}{dir}/lv.txt", "w") as file: pass
         self.registeGruop(f"{dir}")
-        self.setGroupPermitions(f"{dir}", 740, f"Database/{dir}")
+        self.setGroupPermitions(f"{dir}", 377, f"{path}{dir}")
         self.setUserToGroup(u1, f"{dir}")
         self.setUserToGroup(u2, f"{dir}")
-        if not os.path.exists(f"Database/{dir}/lv.txt"):
-            raise ValueError("Diretoria de livechat não existe")
-        texto = ""
-        while texto != '!exit':
-            rmsg = message()
-            data = rmsg.recieve(c_con)
-            if len(data) == 0: break
-            if rmsg.deserialize(data, self.privateKey) < 0:
-                raise ValueError("MSG SERVICE: verification error!") 
-            texto = rmsg.content
-            file.write(f"{rmsg.senderID}- {texto}")
+        self.files[u1] = f"{path}{dir}/lv.txt"
+        self.files[u2] = f"{path}{dir}/lv.txt"
     
+    def removerGrupo(self, nome):
+        if not os.path.exists(f"{path}{nome}"):
+            print(f"LOG- Grupo {nome} já não existe!({str(datetime.datetime.now())})")
+        else:
+            message = f"Remover grupo: {nome}"
+            self.masters_con.sendall(message.encode())
+            data = self.masters_con.recv(1024).decode('utf-8')
+            if data == "SUCESS":
+                print(f"LOG- Grupo {nome} removido!({str(datetime.datetime.now())})")
+            else:
+                print(f"ERROR- Remoção do grupo {nome}!({str(datetime.datetime.now())})")
+            
     
 username = 'server'
 password = 'root'
 server(username, password)
 #  sudo -u server python3 serverAPI.py
-
-# Colocar permissões de leitura aos menbros do grupo MailViewer
-
-"""# Dar permissões de leitura e escrita para o usuario1
-sudo chown usuario1:grupo_principal diretorio
-sudo chmod 750 diretorio
-
-# Dar permissões de leitura apenas para o usuario2
-sudo chown usuario2:subgrupo diretorio
-sudo chmod 550 diretorio"""

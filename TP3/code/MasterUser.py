@@ -48,6 +48,15 @@ class MasterUser:
                         udata = data[1].split(",")
                         r = self.definirPermissoesUser(udata[0], udata[2], udata[1])
                         client_socket.sendall(r.encode('utf-8'))
+                    elif "Remover grupo:" in message:
+                        data = message.split(": ")
+                        r = self.removerGrupo(udata[1])
+                        client_socket.sendall(r.encode('utf-8'))
+                    elif "Remover utilizador:" in message:
+                        data = message.split(": ")
+                        r = self.removerUtilizador(udata[1])
+                        client_socket.sendall(r.encode('utf-8'))
+
         except KeyboardInterrupt:
             self.server_socket.close()
             print("Master encerrado.")
@@ -101,45 +110,22 @@ class MasterUser:
         except Exception as e:
             print(f"Erro ao definir as permissões da diretoria: {e}")
 
+    def removerGrupo(self, nome):
+        try:
+            os.system(f"sudo groupdel {nome}")
+            os.system(f"sudo rm -r DataBase/{nome}")
+            print(f"Grupo {nome} removida com sucesso!")
+            return "SUCESS"
+        except Exception as e:
+            print(f"Erro ao remover grupo: {e}")
+
+    def removerUtilizador(self, nome):
+        try:
+            os.system(f"sudo userdel -r {nome}")
+            os.system(f"sudo rm -r DataBase/{nome}")
+            print(f"User {nome} removido com sucesso!")
+            return "SUCESS"
+        except Exception as e:
+            print(f"Erro ao remover utilizador: {e}")
+
 MasterUser()
-
-
-'''
-import os
-
-nome = input("Server: ")
-if (os.system(f"sudo useradd -m {nome}") == 0):
-    os.system(f"sudo passwd {nome}")
-
-group = "code"
-# grupo de acesso à diretoria do codigo
-os.system(f"sudo groupadd {group}")
-# adicionar a diretoria com código ao grupo
-diretorio_codigo = os.getcwd()
-# Alterar o grupo do diretório para o grupo 'code'
-os.system(f"sudo chown :{group} {diretorio_codigo}")
-# Dar permissão de execução para o grupo 'code'
-os.system(f"sudo chmod g+x {diretorio_codigo}/*")
-# adicionar o server ao grupo
-os.system(f"sudo usermod -aG {group} {nome}")
-
-
-# Correr o server como server
-comando = (
-    f"sudo -u {nome} bash -c '"
-    f"cd {diretorio_codigo} && "
-    "python3 serverAPI.py'"
-)
-os.system(comando)
-'''
-
-'''
-import subprocess
-
-nome = "exemplo_usuario"
-senha = "nova_senha"
-
-# Execute o comando passwd e defina a senha do usuário sem interação
-process = subprocess.Popen(['sudo', 'passwd', nome], stdin=subprocess.PIPE)
-process.communicate(input=senha.encode())
-'''

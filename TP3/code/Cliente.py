@@ -1,9 +1,13 @@
+import threading
+import time
 from message import *
 from socketFuncs.socketFuncs import join_tls_socket
 from Auth_cert.Auth_cert import load_data, extract_public_key
 import os, sys, csv
 
 path = 'DataBase/'
+stop_event = threading.Event()
+
 
 class cliente:
     def __init__(self, name, pw):
@@ -18,6 +22,7 @@ class cliente:
                     "CLI3":extract_public_key('CLI3.crt')}
         self.unreadMSG = 0
         self.liveMsg = 0
+        self.LiveChat = 0
         self.popup = "############"
         self.start()
         self.server_socket.close()
@@ -150,55 +155,88 @@ class cliente:
             msg.send(self.server_socket,cypher)
 
     def displayLiveChat(self):
-        texto = "\n"
-        while True:
-            print("Live Chat Mode!")
-            if '!ask-' in texto:
-                msg = message(self.username, self.ca, 'server', '4', 'live-chat', texto,"")
-            elif "!acpt-" in texto:
-                msg = message(self.username, self.ca, 'server', '4', 'live-chat', texto,"")
-            else:
-                msg = message(self.username, self.ca, 'server', '4', 'live-chat', "start","")
-            serialized_msg = msg.serialize(self.pks['server'], self.privateKey)
-            msg.send(self.server_socket, serialized_msg) 
-            # receber resposta
-            rmsg = message()
-            cypher = rmsg.recieve(self.server_socket)
-            rmsg.deserialize(cypher, self.privateKey)
-            if "user:" in rmsg.content:
-                data = rmsg.content.split(":")
-                for i in range(1, len(data)):
-                    print(f"-> Utilizador {data[i]} disponivel!")
-                print("\n\t!ask-{user} to ask for a LiveChat!\n\t!acpt-{user} to accept a LiveChat!\n\tPress ENTER to refresh!\n\t!exit to exit")
-            elif "accept" in rmsg.content:
-                data = rmsg.content.split(":")
-                self.startLiveChat(data[1])
-                break
-            texto = input(": ")
+        print("Live Chat Mode!")
+        print("\t!ask-{user} to ask for a LiveChat!\n\t!acpt-{user} to accept a LiveChat!\n\tPress ENTER to refresh!\n\t!exit to exit")
+        stop_event.clear()
+        receive_thread = threading.Thread(target=self.recieveMSG)
+        receive_thread.start()
+        send_thread = threading.Thread(target=self.sendMSG)
+        send_thread.start()
+        receive_thread.join()
+        stop_event.set()
+        send_thread.join()
+        print(self.LiveChat)
+        self.startLiveChat()
         # perguntar quem esta a pedir live chat e aceitar ou rejeitar
         msg = message(self.username, self.ca, 'server', '4', 'live-chat', "!exit","")
         serialized_msg = msg.serialize(self.pks['server'], self.privateKey)
         msg.send(self.server_socket, serialized_msg) 
     
-    def startLiveChat(self, lvchat):
-        try: 
-            texto = input("\n: ")
-            while texto != '!exit':
-                with open(f"{path}{lvchat}/{lvchat}.txt", newline='') as arquivo_csv:
-                    leitor_csv = csv.reader(arquivo_csv)
-                    for linha in leitor_csv:
-                        data = linha.split('- ')
-                        if data[0] == self.username:
-                            print("{:<30}{}".format("", data[1]))
-                        else:
-                            print("{:<30}{}".format(data[1], ""))
-                if texto != '\n':
-                    msg = message(self.username, self.ca, lvchat, '4', 'live-chat', texto,"")
-                    serialized_msg = msg.serialize(self.pks['server'], self.privateKey)
-                    msg.send(self.server_socket, serialized_msg)
-                texto = input("\n: ")
-        finally:
-            return 
+    def recieveMSG(self):
+        while not stop_event.is_set():
+            rmsg = message()
+            cypher = rmsg.recieve(self.server_socket)
+            if not cypher:break
+            rmsg.deserialize(cypher, self.privateKey)
+            if "accept:" in rmsg.content:
+                print("ress ENTER to start!")
+                data = rmsg.content.split(":")
+                self.LiveChat = data[1]
+                break
+            else:
+                print(rmsg.content)
+    
+    def sendMSG(self):
+        msg = message(self.username, self.ca, 'server', '4', 'live-chat', "!start","")
+        serialized_msg = msg.serialize(self.pks['server'], self.privateKey)
+        msg.send(self.server_socket, serialized_msg)
+        texto = "\n"
+        while not stop_event.is_set():
+            if texto == '':
+                msg = message(self.username, self.ca, 'server', '4', 'live-chat', "!start","")
+            else:
+                msg = message(self.username, self.ca, 'server', '4', 'live-chat', texto,"")
+            serialized_msg = msg.serialize(self.pks['server'], self.privateKey)
+            msg.send(self.server_socket, serialized_msg) 
+            time.sleep(0.5)
+            texto = input()
+
+    def startLiveChat(self):
+        os.system('clear')
+        print("Live Chat Mode!")
+        stop_event.clear()
+        receive_thread = threading.Thread(target=self.readFile)
+        receive_thread.start()
+        texto = ""
+        while texto != '!exit':
+            texto = input()
+            if texto != "":
+                msg = message(self.username, self.ca, 'server', '6', 'live-chat', texto,"")
+                serialized_msg = msg.serialize(self.pks['server'], self.privateKey)
+                msg.send(self.server_socket, serialized_msg)
+        stop_event.set()
+        receive_thread.join()
+        
+    def readFile(self):
+        arquivo = f"{path}{self.LiveChat}/lv.txt"
+        last_lines = []  # Armazena as últimas linhas lidas do arquivo
+        while not stop_event.is_set():
+            with open(arquivo, 'r') as arquivo_txt:
+                # Lê todas as linhas do arquivo
+                linhas = arquivo_txt.readlines()
+            # Verifica novas linhas adicionadas ao arquivo
+            new_lines = linhas[len(last_lines):]
+            for linha in new_lines:
+                if "!exit" in linha: 
+                    print("Utilizador desconectado!")
+                    return
+                data = linha.strip().split('- ')
+                if data[0] != self.username:
+                    print("{:<30}{}".format("", data[1]))
+            # Atualiza a lista de últimas linhas lidas
+            last_lines = linhas
+            time.sleep(1)
+
         """
         # começar o conversar com prints do lado direito e esquerdo
         left_text = "Texto alinhado à esquerda"
