@@ -38,7 +38,7 @@ class cliente:
         elif self.unreadMSG > 0 and self.liveMsg > 0:
             self.popup = " {} New Message! AND {} Live Chat! ".format(self.unreadMSG, self.liveMsg)
         self.help = """{}\n1- Check MAilBox!\n2- Check Live Chat!\n3- Send Message!
-4- Start Live Chat!\n5- Create Group!\n6- Join Group!\n7- Mensagens de um grupo!\n9- Close app!\n{}\n""".format((12*"#")+self.popup+(12*"#"), "#"*(24+len(self.popup)))
+4- Create Group!\n5- Join Group!\n6- Mensagens de um grupo!\n9- Close app!\n999- Apagar conta!\n{}\n""".format((12*"#")+self.popup+(12*"#"), "#"*(24+len(self.popup)))
 
     def menu(self):
         os.system('clear')
@@ -53,13 +53,13 @@ class cliente:
             elif option == 2:
                 self.displayLiveChat()
             elif option == 4:
-                self.startLiveChat()
-            elif option == 5:
                 self.creat_group()
-            elif option == 6:
+            elif option == 5:
                 self.join_group()
-            elif option == 7:
+            elif option == 6:
                 self.displayGroupBox()
+            elif option == 999:
+                self.removerConta()
             self.updateMenu()
             option = int(input(self.help))
             os.system('clear')
@@ -131,28 +131,31 @@ class cliente:
         os.system('clear')
         name = input("Name of the group:")
         # percorrer a diretoria com o meu nome
-        # ler o ficehiro csv 
-        nao_lidas = []
-        with open(f"{path}{name}/log.csv", newline='') as arquivo_csv:
-            leitor_csv = csv.reader(arquivo_csv)
-            for linha in leitor_csv:
-                if self.username not in eval(linha[4]):
-                    nao_lidas.append((linha[0],linha[1]))
+        if os.path.exists(f"{path}{name}"):
+            # ler o ficehiro csv 
+            nao_lidas = []
+            with open(f"{path}{name}/log.csv", newline='') as arquivo_csv:
+                leitor_csv = csv.reader(arquivo_csv)
+                for linha in leitor_csv:
+                    if self.username not in eval(linha[4]):
+                        nao_lidas.append((linha[0],linha[1]))
 
-        if len(nao_lidas) == 0:
-            print("Não tem mensagens novas!")
+            if len(nao_lidas) == 0:
+                print("Não tem mensagens novas!")
+            else:
+                num=[]
+                for msg in nao_lidas:
+                    with open(f"{path}{name}/{msg[0]}.bin", "rb") as file:
+                        file_data = file.read()
+                    rmsg = file_data.decode('utf-8')
+                    num.append(msg[0])
+                    print(rmsg)
+                msg = message(self.username, self.ca, 'server','8', name, str(num), "")
+                msg.encrypt_content(self.pks['server'], self.privateKey)
+                cypher = msg.serialize(self.pks['server'], self.privateKey)
+                msg.send(self.server_socket,cypher)
         else:
-            num=[]
-            for msg in nao_lidas:
-                with open(f"{path}{name}/{msg[0]}.bin", "rb") as file:
-                    file_data = file.read()
-                rmsg = file_data.decode('utf-8')
-                num.append(msg[0])
-                print(rmsg)
-            msg = message(self.username, self.ca, 'server','8', name, str(num), "")
-            msg.encrypt_content(self.pks['server'], self.privateKey)
-            cypher = msg.serialize(self.pks['server'], self.privateKey)
-            msg.send(self.server_socket,cypher)
+            print(f"Não exite grupo {name}")
 
     def displayLiveChat(self):
         print("Live Chat Mode!")
@@ -237,16 +240,6 @@ class cliente:
             last_lines = linhas
             time.sleep(1)
 
-        """
-        # começar o conversar com prints do lado direito e esquerdo
-        left_text = "Texto alinhado à esquerda"
-        right_text = "Texto alinhado à direita"
-
-        # Usando formatação de string
-        print("{:<30}{}".format(left_text, right_text))
-        pass
-        """
-
     def creat_group(self):
         name = input("Name of the group:")
         msg = message(self.username, self.ca, 'server','2', '', name, "")
@@ -259,7 +252,6 @@ class cliente:
         messagem = message(self.id, self.ca, "server", type, "", "", "")
         cypher = messagem.serialize(public_key_server, self.sk)
         self.socket_send_msg(cypher)
-        #print('Pedido de lista enviado!')
         recieved_message = self.socket_recieve_msg()
         msg = message()
         valid = msg.deserialize(recieved_message, self.sk)
@@ -301,6 +293,12 @@ class cliente:
     def join_group(self):
         name = input("Name of the group:")
         msg = message(self.username, self.ca, 'server','1', '', name, "")
+        msg.encrypt_content(self.pks['server'], self.privateKey)
+        cypher = msg.serialize(self.pks['server'], self.privateKey)
+        msg.send(self.server_socket,cypher)
+
+    def removerConta(self):
+        msg = message(self.username, self.ca, 'server', '9', '', self.password, "")
         msg.encrypt_content(self.pks['server'], self.privateKey)
         cypher = msg.serialize(self.pks['server'], self.privateKey)
         msg.send(self.server_socket,cypher)

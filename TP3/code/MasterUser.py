@@ -50,11 +50,11 @@ class MasterUser:
                         client_socket.sendall(r.encode('utf-8'))
                     elif "Remover grupo:" in message:
                         data = message.split(": ")
-                        r = self.removerGrupo(udata[1])
+                        r = self.removerGrupo(data[1])
                         client_socket.sendall(r.encode('utf-8'))
                     elif "Remover utilizador:" in message:
                         data = message.split(": ")
-                        r = self.removerUtilizador(udata[1])
+                        r = self.removerUtilizador(data[1])
                         client_socket.sendall(r.encode('utf-8'))
 
         except KeyboardInterrupt:

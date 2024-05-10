@@ -214,7 +214,13 @@ class server:
                    self.removerGrupo(rmsg.content)
 
                 elif action == '9': # remover utilizador
-                    pass
+                    print("remover utilizador")
+                    valid = rmsg.decrypt_content(self.privateKey,get_user_pk(rmsg.senderID))
+                    if valid > 0:
+                        print("remover utilizador")
+                        r = self.login(rmsg.senderID, rmsg.content)
+                        if r == "SUCESS":
+                            self.removerUser(rmsg.senderID)
 
         except Exception as e:
             print(e)
@@ -330,7 +336,7 @@ class server:
         if not os.path.exists(f"{path}{dir}"): os.makedirs(f"{path}{dir}")
         with open(f"{path}{dir}/lv.txt", "w") as file: pass
         self.registeGruop(f"{dir}")
-        self.setGroupPermitions(f"{dir}", 377, f"{path}{dir}")
+        self.setGroupPermitions(f"{dir}", 370, f"{path}{dir}")
         self.setUserToGroup(u1, f"{dir}")
         self.setUserToGroup(u2, f"{dir}")
         self.files[u1] = f"{path}{dir}/lv.txt"
@@ -348,7 +354,21 @@ class server:
             else:
                 print(f"ERROR- Remoção do grupo {nome}!({str(datetime.datetime.now())})")
             
-    
+    def removerUser(self, nome):
+        if not os.path.exists(f"{path}{nome}"):
+            print(f"LOG- User {nome} já não existe!({str(datetime.datetime.now())})")
+        else:
+            message = f"Remover utilizador: {nome}"
+            self.masters_con.sendall(message.encode())
+            data = self.masters_con.recv(1024).decode('utf-8')
+            if data == "SUCESS":
+                os.system(f"rm -r {serverPath}pw-{nome}.pw")
+                os.system(f"rm -r {serverPath}pk-{nome}.pem")
+                print(f"LOG- Utilizador {nome} removido!({str(datetime.datetime.now())})")
+            else:
+                print(f"ERROR- Remoção do utilizador {nome}!({str(datetime.datetime.now())})")
+
+
 username = 'server'
 password = 'root'
 server(username, password)
