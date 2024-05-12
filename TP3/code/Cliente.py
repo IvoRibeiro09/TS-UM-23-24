@@ -28,6 +28,14 @@ class cliente:
         self.server_socket.close()
 
     def start(self):
+        option = int(input("1- Register!\n2- Login!\n"))
+        while True:
+            if option == 1:
+                r = self.register() 
+            elif option == 2:
+                r = self.sendLogin()
+            if r == 0: break
+            option = int(input("1- Register!\n2- Login!\n"))
         self.menu()
         
     def updateMenu(self):
@@ -293,6 +301,38 @@ class cliente:
         msg.encrypt_content(self.pks['server'], self.privateKey)
         cypher = msg.serialize(self.pks['server'], self.privateKey)
         msg.send(self.server_socket,cypher)
+
+    def register(self):
+        # encryptar e assinar o conteudo e mandar a assinatura no message
+        msg = message(self.username, self.ca, 'server', "0", "regist", self.publicKey, "")
+        msg.serialize_public_key()
+        data = mkpair(self.password.encode('utf-8'), msg.content.encode('utf-8'))
+        msg.content = data.decode('utf-8')
+        cypher = msg.serialize(self.pks['server'], self.privateKey)
+        msg.send(self.server_socket, cypher)
+        rmsg = message()
+        cypher = rmsg.recieve(self.server_socket)
+        rmsg.deserialize(cypher, self.privateKey)
+        if rmsg.content == "SUCESS":
+            print("User Registado com sucesso!")
+            return 0
+        else:
+            print(f"{rmsg.content}")
+            return -1
+    
+    def sendLogin(self):
+        msg = message(self.username, self.ca, 'server', "7", "login", self.password, "")
+        cypher = msg.serialize(self.pks['server'], self.privateKey)
+        msg.send(self.server_socket, cypher)
+        rmsg = message()
+        data = rmsg.recieve(self.server_socket)
+        rmsg.deserialize(data, self.privateKey)
+        if rmsg.content == "SUCESS":
+            print("Login efetuado com sucesso!")
+            return 0
+        else:
+            print(f"{rmsg.content}")
+            return -1
 
 if __name__ == "__main__":
     # Verificar se há argumentos passados na linha de comando

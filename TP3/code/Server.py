@@ -76,116 +76,133 @@ class server:
     def handleClient(self, c_con, c_add):
         print(f"Conexão estabelecida com {c_add}")
         try:
+            rmsg = message()
+            data = rmsg.recieve(c_con)
+ 
+            if rmsg.deserialize(data, self.privateKey) < 0:
+                raise ValueError("MSG SERVICE: verification error!")
+                
+            for attribute in rmsg.senderCA.subject:
+                if attribute.oid == oid.NameOID.PSEUDONYM:
+                    uid = attribute.value
+                    break 
+            if uid != rmsg.senderID: raise ValueError("Erro utilizador invalido")
+                
+            action = rmsg.action
+            
+            if action == '0': # registrar
+                r = "User já registado"
+                if not os.path.exists(f"{path}{rmsg.senderID}"):
+                    r = self.registeUser(rmsg.senderID, rmsg)
+                    if r == "SUCESS": self.uCons[rmsg.senderID] = c_con
+                msg = message('server', self.ca, rmsg.senderID, "0", 'regist-response', r, "")
+                data = msg.serialize(get_user_pk(rmsg.senderID), self.privateKey)
+                msg.send(c_con, data)
+            elif action == '7': # login user
+                r = self.login(rmsg.senderID, rmsg.content)
+                msg = message('server', self.ca, rmsg.senderID, "7", 'login-response', r, "")
+                data = msg.serialize(get_user_pk(rmsg.senderID), self.privateKey)
+                msg.send(c_con, data)
+            else:
+                raise ValueError("Erro na autenticaçao")
+                
             while True:
                 rmsg = message()
                 data = rmsg.recieve(c_con)
-                if len(data) == 0: break
-                if rmsg.deserialize(data, self.privateKey) < 0:
-                    raise ValueError("MSG SERVICE: verification error!")
-                
-                for attribute in rmsg.senderCA.subject:
-                    if attribute.oid == oid.NameOID.PSEUDONYM:
-                        uid = attribute.value
-                        break 
-                if uid != rmsg.senderID: raise ValueError("Erro utilizador invalido")
-                
-                action = rmsg.action
-                if action == '0': # registrar
-                    r = "User já registado"
-                    if not os.path.exists(f"{path}{rmsg.senderID}"):
-                        r = self.registeUser(rmsg.senderID, rmsg)
-                        if r == "SUCESS": self.uCons[rmsg.senderID] = c_con
-                    msg = message('server', self.ca, rmsg.senderID, "0", 'regist-response', r, "")
-                    data = msg.serialize(get_user_pk(rmsg.senderID), self.privateKey)
-                    msg.send(c_con, data)
+                if len(data) != 0:
+                    if rmsg.deserialize(data, self.privateKey) < 0:
+                        raise ValueError("MSG SERVICE: verification error!")
+                    
+                    for attribute in rmsg.senderCA.subject:
+                        if attribute.oid == oid.NameOID.PSEUDONYM:
+                            uid = attribute.value
+                            break 
+                    if uid != rmsg.senderID: raise ValueError("Erro utilizador invalido")
+                    
+                    action = rmsg.action
 
-                elif action == '1': # pedido de entrar num grupo
-                    valid = rmsg.decrypt_content(self.privateKey,get_user_pk(rmsg.senderID))
-                    if valid > 0:
-                        data = self.setUserToGroup(rmsg.senderID,rmsg.content)
-                        if data != "SUCESS":
-                            print(f"LOG- Falha ao registrar {rmsg.senderID} no Grupo {rmsg.content}")
-                    else:
-                        print(f"LOG- Falha ao decifrar content")   
-
-                elif action == '2': # criar grupo
-                    valid = rmsg.decrypt_content(self.privateKey,get_user_pk(rmsg.senderID))
-                    if valid > 0:
-                        data = self.registeGruop(rmsg.content)
-                        if data == "SUCESS":
+                    if action == '1': # pedido de entrar num grupo
+                        valid = rmsg.decrypt_content(self.privateKey,get_user_pk(rmsg.senderID))
+                        if valid > 0:
                             data = self.setUserToGroup(rmsg.senderID,rmsg.content)
                             if data != "SUCESS":
                                 print(f"LOG- Falha ao registrar {rmsg.senderID} no Grupo {rmsg.content}")
                         else:
-                            print(f"LOG- Falha ao criar Grupo {rmsg.content}")
-                    else:
-                        print(f"LOG- Falha ao decifrar content")
+                            print(f"LOG- Falha ao decifrar content")   
 
-                elif action == '3' : # guradar a mensagem numa pasta
-                    if self.guardar_mensagem(rmsg) > 0:
-                        print(f"LOG- Mensagem recebida do utlizador {rmsg.senderID} para o utilizador {rmsg.reciverID}.")
-                        valido = self.user_logs(rmsg.reciverID,rmsg,valido)
-                    else:
-                        print(f"LOG- Erro ao guardar mensagem do utlizador {rmsg.senderID} na pasta do utilizador {rmsg.reciverID}.")
-               
-                elif action == '4': # pedido de livechat
-                    self.uCons[rmsg.senderID] = c_con
-                    self.livechatControl()
-
-                elif action == '6': #escrever no ficehiro comum as mensagens recebidas
-                    with open(self.files[rmsg.senderID], "a") as file:
-                        texto = rmsg.content
-                        file.write(f"{rmsg.senderID}- {texto}\n")
-
-                elif action == '7': # login user
-                    r = self.login(rmsg.senderID, rmsg.content)
-                    msg = message('server', self.ca, rmsg.senderID, "7", 'login-response', r, "")
-                    data = msg.serialize(get_user_pk(rmsg.senderID), self.privateKey)
-                    msg.send(c_con, data)
-
-                elif action == '8': # por as mensagens como lidas
-                    valid = rmsg.decrypt_content(self.privateKey,get_user_pk(rmsg.senderID))
-                    if valid == -1:
-                        print(f"LOG- Erro ao decifrar content da mensagem do utlizador {rmsg.senderID}.")
-                    else:
-                        num = eval(rmsg.content)
-                        if rmsg.subject == '':
-                            user =rmsg.senderID
+                    elif action == '2': # criar grupo
+                        valid = rmsg.decrypt_content(self.privateKey,get_user_pk(rmsg.senderID))
+                        if valid > 0:
+                            data = self.registeGruop(rmsg.content)
+                            if data == "SUCESS":
+                                data = self.setUserToGroup(rmsg.senderID,rmsg.content)
+                                if data != "SUCESS":
+                                    print(f"LOG- Falha ao registrar {rmsg.senderID} no Grupo {rmsg.content}")
+                            else:
+                                print(f"LOG- Falha ao criar Grupo {rmsg.content}")
                         else:
-                            user =rmsg.subject
-                        with open(f"{path}{user}/log.csv", mode='r', newline='') as arquivo_csv:
-                            leitor_csv = csv.reader(arquivo_csv)
-                            linhas = list(leitor_csv)
-                        for linha in linhas:
-                            if linha[0] in num:
-                                if rmsg.subject == '':
-                                    linha[4]= "TRUE"
-                                else:
-                                    lis = eval(linha[4])
-                                    lis.append(rmsg.senderID)
-                                    linha[4]=str(lis)
-                        # Escrever o conteúdo modificado de volta para o arquivo
-                        with open(f"{path}{user}/log.csv", mode='w', newline='') as arquivo_csv:
-                            escritor_csv = csv.writer(arquivo_csv)
-                            escritor_csv.writerows(linhas)
-                        print(f"LOG- Atualizaçao da leitura de mensagens do utlizador {rmsg.senderID}.")
+                            print(f"LOG- Falha ao decifrar content")
 
-                elif action == '5': # sair do grupo
-                   self.removerGrupo(rmsg.content)
+                    elif action == '3' : # guradar a mensagem numa pasta
+                        valido = self.guardar_mensagem(rmsg)
+                        if valido > 0:
+                            print(f"LOG- Mensagem recebida do utlizador {rmsg.senderID} para o utilizador {rmsg.reciverID}.")
+                            valido = self.user_logs(rmsg.reciverID,rmsg,valido)
+                        else:
+                            print(f"LOG- Erro ao guardar mensagem do utlizador {rmsg.senderID} na pasta do utilizador {rmsg.reciverID}.")
+                
+                    elif action == '4': # pedido de livechat
+                        self.uCons[rmsg.senderID] = c_con
+                        self.livechatControl()
 
-                elif action == '9': # remover utilizador
-                    print("remover utilizador")
-                    valid = rmsg.decrypt_content(self.privateKey,get_user_pk(rmsg.senderID))
-                    if valid > 0:
+                    elif action == '6': #escrever no ficehiro comum as mensagens recebidas
+                        with open(self.files[rmsg.senderID], "a") as file:
+                            texto = rmsg.content
+                            file.write(f"{rmsg.senderID}- {texto}\n")
+
+                    elif action == '8': # por as mensagens como lidas
+                        valid = rmsg.decrypt_content(self.privateKey,get_user_pk(rmsg.senderID))
+                        if valid == -1:
+                            print(f"LOG- Erro ao decifrar content da mensagem do utlizador {rmsg.senderID}.")
+                        else:
+                            num = eval(rmsg.content)
+                            if rmsg.subject == '':
+                                user =rmsg.senderID
+                            else:
+                                user =rmsg.subject
+                            with open(f"{path}{user}/log.csv", mode='r', newline='') as arquivo_csv:
+                                leitor_csv = csv.reader(arquivo_csv)
+                                linhas = list(leitor_csv)
+                            for linha in linhas:
+                                if linha[0] in num:
+                                    if rmsg.subject == '':
+                                        linha[4]= "TRUE"
+                                    else:
+                                        lis = eval(linha[4])
+                                        lis.append(rmsg.senderID)
+                                        linha[4]=str(lis)
+                            # Escrever o conteúdo modificado de volta para o arquivo
+                            with open(f"{path}{user}/log.csv", mode='w', newline='') as arquivo_csv:
+                                escritor_csv = csv.writer(arquivo_csv)
+                                escritor_csv.writerows(linhas)
+                            print(f"LOG- Atualizaçao da leitura de mensagens do utlizador {rmsg.senderID}.")
+
+                    elif action == '5': # sair do grupo
+                        self.removerGrupo(rmsg.content)
+
+                    elif action == '9': # remover utilizador
                         print("remover utilizador")
-                        r = self.login(rmsg.senderID, rmsg.content)
-                        if r == "SUCESS":
-                            self.removerUser(rmsg.senderID)
+                        valid = rmsg.decrypt_content(self.privateKey,get_user_pk(rmsg.senderID))
+                        if valid > 0:
+                            print("remover utilizador")
+                            r = self.login(rmsg.senderID, rmsg.content)
+                            if r == "SUCESS":
+                                self.removerUser(rmsg.senderID)
 
         except Exception as e:
             print(e)
-            print(f"Conexão fechada com {c_add}")
         finally:
+            print(f"Conexão fechada com {c_add}")
             c_con.close()
     
     def login(self, nome, pw):
@@ -277,7 +294,7 @@ class server:
         user = True
         if not os.path.exists(f"{serverPath}pk-{utilizador}.pem"):
             user = False
-        print(user)
+        
         if os.path.exists(f"{path}{utilizador}"):
             with open(f"{path}{utilizador}/log.csv", mode='a+', newline='') as arquivo_csv:
                 escritor_csv = csv.writer(arquivo_csv)
