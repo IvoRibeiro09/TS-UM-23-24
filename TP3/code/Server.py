@@ -2,6 +2,7 @@ import csv
 import datetime
 import os
 import threading
+import time
 from socketFuncs.socketFuncs import creat_tls_socket, join_tcp_socket
 import cryptography.x509.oid as oid
 from message import *
@@ -134,7 +135,11 @@ class server:
                         valid = rmsg.decrypt_content(self.privateKey,get_user_pk(rmsg.senderID))
                         if valid > 0:
                             data = self.registeGruop(rmsg.content)
+                            nome = rmsg.content
                             if data == "SUCESS":
+                                if not os.path.exists(f"{path}{nome}"): os.makedirs(f"{path}{nome}")
+                                open(f"{path}{nome}/log.csv", "w")
+                                self.setGroupPermitions(nome, '750', f"{path}{nome}")
                                 data = self.setUserToGroup(rmsg.senderID,rmsg.content)
                                 if data != "SUCESS":
                                     print(f"LOG- Falha ao registrar {rmsg.senderID} no Grupo {rmsg.content}")
@@ -153,7 +158,7 @@ class server:
                 
                     elif action == '4': # pedido de livechat
                         self.uCons[rmsg.senderID] = c_con
-                        self.livechatControl()
+                        self.livechatControl(rmsg.senderID, rmsg.content, c_con)
 
                     elif action == '6': #escrever no ficehiro comum as mensagens recebidas
                         with open(self.files[rmsg.senderID], "a") as file:
@@ -243,9 +248,6 @@ class server:
         self.masters_con.sendall(message.encode())
         data = self.masters_con.recv(1024).decode('utf-8')
         if data == "SUCESS":
-            if not os.path.exists(f"{path}{nome}"): os.makedirs(f"{path}{nome}")
-            open(f"{path}{nome}/log.csv", "w")
-            self.setGroupPermitions(nome, '750', f"{path}{nome}")
             print("LOG- Grupo {} registado no dia {}!".format(nome, str(datetime.datetime.now())))
         return data
     
@@ -342,6 +344,7 @@ class server:
             print(f"LOG- User {nome} pediu livechat com {data[1]}!")
         elif "!exit" in content:
             print(f"LOG- User {nome} saiu do modo liveChat!")
+            time.sleep(0.5)
             self.livechats[nome] = 0
             data = self.files[nome].split("/")
             self.removerGrupo(data[1])
@@ -351,7 +354,7 @@ class server:
         if not os.path.exists(f"{path}{dir}"): os.makedirs(f"{path}{dir}")
         with open(f"{path}{dir}/lv.txt", "w") as file: pass
         self.registeGruop(f"{dir}")
-        self.setGroupPermitions(f"{dir}", 370, f"{path}{dir}")
+        self.setGroupPermitions(f"{dir}", 350, f"{path}{dir}")
         self.setUserToGroup(u1, f"{dir}")
         self.setUserToGroup(u2, f"{dir}")
         self.files[u1] = f"{path}{dir}/lv.txt"

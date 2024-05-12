@@ -28,14 +28,9 @@ class cliente:
         self.server_socket.close()
 
     def start(self):
-        option = int(input("1- Register!\n2- Login!\n"))
-        while True:
-            if option == 1:
-                r = self.register() 
-            elif option == 2:
-                r = self.sendLogin()
-            if r == 0: break
-            option = int(input("1- Register!\n2- Login!\n"))
+        r = self.sendLogin()
+        if r != 0: 
+            raise ValueError("Utilizador invalido!")
         self.menu()
         
     def updateMenu(self):
@@ -49,11 +44,11 @@ class cliente:
 4- Create Group!\n5- Join Group!\n6- Mensagens de um grupo!\n9- Close app!\n999- Apagar conta!\n{}\n""".format((12*"#")+self.popup+(12*"#"), "#"*(24+len(self.popup)))
 
     def menu(self):
-        os.system('clear')
-        self.updateMenu()
-        option = int(input(self.help))
-        os.system('clear')
-        while option != 9:
+        option = 0
+        while option != 9 and option != 999:
+            self.updateMenu()
+            option = int(input(self.help))
+            os.system('clear')
             if option == 3:
                 self.send_message()
             elif option == 1:
@@ -68,9 +63,7 @@ class cliente:
                 self.displayGroupBox()
             elif option == 999:
                 self.removerConta()
-            self.updateMenu()
-            option = int(input(self.help))
-            os.system('clear')
+            
      
     def send_message(self):
         os.system('clear')
@@ -206,6 +199,7 @@ class cliente:
     def startLiveChat(self):
         os.system('clear')
         print("Live Chat Mode!")
+        time.sleep(0.5)
         stop_event.clear()
         receive_thread = threading.Thread(target=self.readFile)
         receive_thread.start()
@@ -237,7 +231,7 @@ class cliente:
                     print("{:<30}{}".format("", data[1]))
             # Atualiza a lista de últimas linhas lidas
             last_lines = linhas
-            time.sleep(1)
+            
 
     def creat_group(self):
         name = input("Name of the group:")
@@ -301,24 +295,6 @@ class cliente:
         msg.encrypt_content(self.pks['server'], self.privateKey)
         cypher = msg.serialize(self.pks['server'], self.privateKey)
         msg.send(self.server_socket,cypher)
-
-    def register(self):
-        # encryptar e assinar o conteudo e mandar a assinatura no message
-        msg = message(self.username, self.ca, 'server', "0", "regist", self.publicKey, "")
-        msg.serialize_public_key()
-        data = mkpair(self.password.encode('utf-8'), msg.content.encode('utf-8'))
-        msg.content = data.decode('utf-8')
-        cypher = msg.serialize(self.pks['server'], self.privateKey)
-        msg.send(self.server_socket, cypher)
-        rmsg = message()
-        cypher = rmsg.recieve(self.server_socket)
-        rmsg.deserialize(cypher, self.privateKey)
-        if rmsg.content == "SUCESS":
-            print("User Registado com sucesso!")
-            return 0
-        else:
-            print(f"{rmsg.content}")
-            return -1
     
     def sendLogin(self):
         msg = message(self.username, self.ca, 'server', "7", "login", self.password, "")

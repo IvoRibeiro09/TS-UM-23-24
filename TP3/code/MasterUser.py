@@ -22,7 +22,7 @@ class MasterUser:
                 while client_socket:
                     message = client_socket.recv(1024).decode()
                     if len(message) == 0: break
-                    print(f"Mensagem recebida: {message}")
+                    #print(f"Mensagem recebida: {message}")
                     # Criar um novo usuário usando o comando sudo
                     if "Criar novo user" in message:
                         data = message.split(": ")
@@ -121,7 +121,7 @@ class MasterUser:
 
     def removerUtilizador(self, nome):
         try:
-            os.system(f"sudo userdel -r {nome}")
+            os.system(f"sudo userdel {nome}")
             os.system(f"sudo rm -r DataBase/{nome}")
             print(f"User {nome} removido com sucesso!")
             return "SUCESS"
