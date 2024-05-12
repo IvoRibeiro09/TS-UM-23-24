@@ -54,7 +54,8 @@ class server:
         self.masters_con.close()
 
     def start(self):
-        self.registeUserMaster(self.username, self.password)
+        self.registeGruop(self.username)
+        self.setUserToGroup(self.username, self.username)
         if not os.path.exists("DataBase"): os.makedirs("DataBase")
         if not os.path.exists(f"DataBase/{self.username}"): os.makedirs(f"DataBase/{self.username}")
         self.setUserPermitions(self.username, '740', f"DataBase/{self.username}")
